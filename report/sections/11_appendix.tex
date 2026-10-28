@@ -1,0 +1,95 @@
+\section{Command-line reference}
+\label{app:cli}
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\linewidth}{l l X}
+\toprule
+Option & Default & Meaning \\
+\midrule
+\code{--csv PATH} & \code{./output.csv} & input file (original) \\
+\code{--samples N} & 2000 & total balanced sample size (original) \\
+\code{--mode} & \code{binary} & \code{binary} or \code{multiclass} (original) \\
+\code{--n-qubits n} & 16 & qubits = PCA components (original) \\
+\code{--n-reps r} & 2 & feature-map repetitions (original) \\
+\code{--sampling} & off & finite-shot kernel (original flag; now fast binomial emulation unless \code{--backend cirq}) \\
+\code{--shots s} & 1024 & shots per kernel entry \\
+\code{--kernel} & \code{zz} & \code{zz} (entangling) or \code{rx} (separable, paper Method 1) \\
+\code{--entanglement} & \code{linear} & \code{linear}, \code{circular}, \code{full} \\
+\code{--backend} & \code{fast} & \code{fast} (NumPy, exact) or \code{cirq} \\
+\code{--alphas a...} & 0.05 0.1 0.2 0.4 1 & bandwidth grid for CV \\
+\code{--Cs c...} & 0.1 1 10 100 & $C$ grid for CV (QSVM and RBF) \\
+\code{--no-tune} & off & use \code{--alpha}/\code{--C} and an untuned RBF (\code{C=1, gamma='scale'}) \\
+\code{--alpha a}, \code{--C c} & 1, 1 & fixed values when \code{--no-tune} \\
+\code{--seeds k...} & 42 & one full run per seed; mean $\pm$ std reported \\
+\code{--features} & \code{paper} & \code{paper} (61 listed columns) or \code{all} (77) \\
+\code{--keep-duplicates} & off & do not deduplicate \\
+\code{--no-log} & off & disable the signed log transform \\
+\code{--legacy-scaling} & off & original preprocessing (global MinMax before split) \\
+\code{--legacy} & off & = \code{--legacy-scaling --keep-duplicates --no-tune --alpha 1 --C 1} \\
+\code{--extra-baselines} & off & also train a Random Forest on all raw features \\
+\code{--out-dir DIR} & \code{outputs/<tag>} & where \code{results.json} and figures go \\
+\code{--quiet} & off & suppress per-class reports and tuning logs \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{File-by-file reference}
+\label{app:files}
+\begin{description}
+\item[\code{data\_loader.py}] \code{load\_csv(csv\_path, mode, max\_samples, balance, dedup, feature\_set, seed, verbose)}
+  $\to$ \code{(X\_raw, y, label\_names, info)}. Also \code{duplicate\_overlap(X\_train, X\_test)}.
+  Constants \code{FEATURE\_COLS} (61 names), \code{META\_COLS}.
+\item[\code{preprocessing.py}] \code{QuantumPreprocessor(n\_components, log\_transform, clip, seed)} with
+  \code{fit}, \code{transform} (angles), \code{transform\_pca} (scores for classical models),
+  \code{explained\_variance}. \code{LegacyPreprocessor} and \code{legacy\_global\_scale} reproduce the
+  original behaviour.
+\item[\code{qsvm.py}] \code{entangling\_pairs}; Cirq maps \code{ZZFeatureMap}, \code{RxFeatureMap}
+  (\code{build\_encoding\_circuit}, \code{build\_kernel\_circuit}); \code{FastZZStatevector}
+  (\code{phases}, \code{states}); \code{QuantumKernel} (\code{states}, \code{compute\_kernel\_value},
+  \code{compute\_kernel\_matrix}); \code{QSVM} (\code{fit}, \code{predict}, \code{predict\_proba},
+  \code{decision\_function}, \code{score}, \code{test\_kernel}).
+\item[\code{evaluation.py}] \code{classification\_metrics}, \code{mcnemar}, \code{cv\_score\_precomputed},
+  \code{tune\_quantum}, \code{tune\_rbf}, \code{offdiag\_mean/std}, \code{centered\_alignment},
+  \code{geometric\_difference}, \code{rbf\_kernel\_matrix}, \code{kernel\_diagnostics}, \code{standardize}.
+\item[\code{main.py}] \code{run\_once(args, seed)}, \code{plot\_run}, \code{summarize}, \code{main(argv)}.
+\item[\code{benchmark.py}] the nine experiments; \code{--only}, \code{--quick}.
+\item[\code{make\_figures.py}] builds \code{report/figures} and \code{report/tables}.
+\item[\code{tests/test\_core.py}] 17 unit tests.
+\item[\code{legacy/}] the original \code{data\_loader.py}, \code{qsvm.py}, \code{main.py}, and the original result figure.
+\item[\code{TESTING.md}] exact commands to test everything.
+\end{description}
+
+\section{Reproduction commands}
+\label{app:commands}
+\begin{verbatim}
+cd ~/Desktop/qcnn && source venv/bin/activate
+python -m unittest discover -s tests -v                 # 19 tests, ~15 s
+python main.py --legacy --n-qubits 8                    # original protocol
+python main.py --n-qubits 8                             # improved, binary
+python main.py --mode multiclass --n-qubits 16 --n-reps 1
+python main.py --n-qubits 8 --seeds 0 1 2 3 4 --extra-baselines
+python main.py --kernel rx --n-qubits 16                # paper Method 1
+python main.py --kernel rx --n-qubits 16 --sampling     # paper Method 2
+python benchmark.py && python make_figures.py           # all report results
+cd report && pdflatex report.tex && pdflatex report.tex # this PDF
+\end{verbatim}
+\code{TESTING.md} lists more commands (ablation, Cirq cross-check, real circuit sampling) with
+expected runtimes.
+
+\section{Glossary}
+\begin{description}\itemsep0pt
+\item[Alignment] Cosine similarity between a centred kernel matrix and the centred label kernel.
+\item[Bandwidth ($\alpha$, $\gamma$)] The scale at which a kernel considers points similar.
+\item[CICFlowMeter] Tool that turns packet captures into bidirectional flow statistics.
+\item[Concentration] Off-diagonal kernel values collapsing towards a constant (here, 0).
+\item[DR / FAR] Detection rate / false-alarm rate.
+\item[Feature map] Circuit $U(\bm x)$ that encodes data into a quantum state.
+\item[Fidelity kernel] $K(\bm a,\bm b)=|\braket{\phi(\bm a)}{\phi(\bm b)}|^2$.
+\item[Geometric difference] Huang et al.'s test of whether a classical kernel can match a quantum one on given data.
+\item[Leakage] Information from the test set influencing training.
+\item[McNemar test] Paired test of whether two classifiers err on different samples.
+\item[PCA] Principal component analysis: projection onto the directions of largest variance.
+\item[Statevector] The $2^n$ complex amplitudes describing an $n$-qubit pure state.
+\item[ZZ feature map] Havlíček et al.'s entangling encoding with $Z_iZ_j$ interaction terms.
+\end{description}

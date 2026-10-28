@@ -1,0 +1,131 @@
+\section{Improvements I: Data Integrity}
+\label{sec:impdata}
+
+Figure~\ref{fig:pipeline-new} shows the improved pipeline. Table~\ref{tab:changes} maps every
+audit finding to its fix and the file that implements it. The next four sections describe the
+changes in detail.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=0.35cm and 0.45cm,
+  box/.style={draw,rounded corners,fill=white,align=center,font=\scriptsize,minimum height=0.95cm,text width=2.05cm},
+  new/.style={box,fill=green!8,draw=green!45!black},
+  arr/.style={-{Stealth},thick}]
+\node[box] (csv) {\code{output.csv}};
+\node[new,right=of csv] (clean) {parse numerics\\\textbf{deduplicate}};
+\node[new,right=of clean] (bal) {balance\\(seeded rng)};
+\node[box,right=of bal] (split) {80/20\\stratified split};
+\node[new,right=of split] (prep) {train-only:\\log, z-score,\\PCA, $[0,\pi]$};
+\node[new,below=0.9cm of prep] (zz) {ZZ / $R_x$ map\\bandwidth $\alpha$\\linear/circ./full};
+\node[new,left=of zz] (ker) {fast exact\\statevectors\\$K=|\Phi\Phi^\dagger|^2$};
+\node[new,left=of ker] (cv) {5-fold CV\\on $K_\text{train}$:\\$\alpha$, $C$};
+\node[new,left=of cv] (eval) {metrics, McNemar,\\diagnostics,\\multi-seed};
+\node[new,left=of eval] (rbf) {RBF-SVM\\CV: $C$, $\gamma$\\(+ RF ref.)};
+\coordinate (L) at ([xshift=-4mm]csv.west);
+\draw[arr] (csv)--(clean); \draw[arr] (clean)--(bal); \draw[arr] (bal)--(split); \draw[arr] (split)--(prep);
+\draw[arr] (prep)--(zz); \draw[arr] (zz)--(ker); \draw[arr] (ker)--(cv); \draw[arr] (cv)--(eval);
+\draw[arr] (rbf)--(eval);
+\draw[arr,dashed] (prep.north) -- ++(0,0.35) node[above left,font=\scriptsize,pos=1]{} -| (L) |- (rbf.west);
+\node[font=\scriptsize,above] at ($(prep.north)!0.5!(csv.north)+(0,0.35)$) {same PCA features};
+\end{tikzpicture}
+\caption{Improved pipeline. Green boxes are new or changed. Every fitted statistic comes from the
+training split only.}
+\label{fig:pipeline-new}
+\end{figure}
+
+\begin{table}[H]
+\centering\small
+\caption{Audit finding $\to$ change $\to$ location.}
+\label{tab:changes}
+\begin{tabularx}{\linewidth}{c X l}
+\toprule
+\# & Change & Where \\
+\midrule
+I1 & Drop exact duplicate (features, label) rows before sampling; report the train/test overlap & \code{data\_loader.py} \\
+I2 & 5-fold CV grid search on the training set for QSVM ($\alpha$, $C$) and RBF ($C$, $\gamma$), same metric and folds & \code{evaluation.py} \\
+I3 & Bandwidth $\alpha$ (input scaling) in all feature maps; concentration diagnostics & \code{qsvm.py}, \code{evaluation.py} \\
+I4 & One simulation per sample plus a Gram product; fast exact NumPy engine; state cache & \code{qsvm.py} \\
+I5 & All scaling/PCA fitted on training rows only; test values clipped to $[0,\pi]$ & \code{preprocessing.py} \\
+I6 & Signed $\log(1+|x|)$ before standardisation and PCA & \code{preprocessing.py} \\
+I7 & \code{--seeds}: repeat over seeds, report mean $\pm$ std; exact McNemar test per seed & \code{main.py}, \code{evaluation.py} \\
+I8 & Seeded \code{default\_rng}; seeded Platt scaling, PCA and CV & all modules \\
+I9 & All methods share one loader, one split and one preprocessing per seed & \code{main.py}, \code{benchmark.py} \\
+I10 & \code{--kernel rx} (closed form) and \code{--sampling} (shots) added to the pipeline & \code{qsvm.py} \\
+I11 & Balanced accuracy, macro-F1, MCC, AUC (binary and OvR), false-alarm and detection rates & \code{evaluation.py} \\
+I12 & No padding; real feature counts reported; no silent truncation & \code{data\_loader.py}, \code{main.py} \\
+I13 & Balance from the full (deduplicated) pool, so \code{--samples} is the real sample size & \code{data\_loader.py} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Duplicate removal (I1)}
+\paragraph{Problem.} With duplicates kept, many test flows are byte-identical to training flows.
+\code{data\_loader.duplicate\_overlap()} measures this directly by hashing every training row and
+counting test rows found in the set. For the original protocol it reports
+\textbf{28--30\%} of test rows in the binary task (Table~\ref{tab:ablation}). A kernel
+classifier gets those rows right automatically: $K(\bm x,\bm x)=1$ is the largest possible kernel
+value, so the training twin dominates the decision function.
+
+\paragraph{Change.} \code{load\_csv(dedup=True)} (the default) removes rows whose 61 feature values
+\emph{and} task label equal those of an earlier row, before any sampling:
+\begin{verbatim}
+    key = X_df.copy(); key["__label"] = y_all
+    keep = ~key.duplicated().values
+\end{verbatim}
+The key uses the label of the task (\code{y\_all}), not the raw attack name: in binary mode an
+LDAP flow and an identical Portmap flow are both ``DDoS'', so the second one is a duplicate
+(175 extra rows). Identical feature vectors with \emph{different} task labels (177 rows in
+multiclass mode, 2 in binary mode) are kept. They are genuine
+ambiguity, not leakage. \code{--keep-duplicates} restores the old behaviour for comparison.
+After deduplication the overlap falls to 0--0.25\% (a handful of rows that differ only in
+dropped zero-variance columns).
+
+\paragraph{Why it matters for the conclusions.} Duplicates do not affect all models equally. A
+kernel that is very sharp ($K\approx I$ off the diagonal, as with the untuned 16-qubit ZZ map)
+behaves almost like a nearest-neighbour lookup. It benefits \emph{most} from exact twins and is
+hurt most on genuinely new flows. Leakage can therefore create a spurious advantage for exactly
+the most ``quantum'' kernel.
+
+\subsection{Leakage-free preprocessing (I5)}
+\paragraph{Problem.} The original loader called \code{MinMaxScaler().fit\_transform(X)} on all
+sampled rows, then \code{main.py} split them. Each feature's minimum and maximum therefore
+included test rows. With heavy-tailed features the maximum is often a single extreme flow, so
+whether that flow lands in train or test changes the scale of every training feature.
+
+\paragraph{Change.} \code{data\_loader.py} now returns raw, unscaled features. A new class,
+\code{QuantumPreprocessor} in \code{preprocessing.py}, is fitted on the training split only, inside
+\code{QSVM.fit()}. Its \code{transform()} applies the stored statistics to the test set and clips
+out-of-range angles to $[0,\pi]$. The classical baselines use \code{transform\_pca()} of the
+\emph{same} fitted object, so both models see identical information. The original behaviour is
+kept as \code{LegacyPreprocessor} plus \code{legacy\_global\_scale()}, selected with
+\code{--legacy-scaling}.
+
+\subsection{Signed log transform (I6)}
+\paragraph{Problem.} Angle encoding maps each feature to a rotation. If 90\% of flows fall within
+0.002\,rad of each other, the corresponding qubit is in essentially the same state for all of
+them, and the kernel cannot tell them apart along that direction. PCA does not help, because it
+is dominated by the few extreme flows that define the variance.
+
+\paragraph{Change.} Before standardisation and PCA, every feature is transformed by
+\begin{equation}
+x\mapsto \operatorname{sign}(x)\,\log(1+|x|).
+\end{equation}
+This is monotone, defined for zero and negative values (\code{Fwd Header Length} is negative in
+12{,}592 rows, an artefact of CICFlowMeter), and compresses nine orders of magnitude into about 22 units.
+Figure~\ref{fig:skew} shows the result for \code{Flow Bytes/s}: the median angle moves from
+0.45 to 2.86\,rad and the fraction of flows below 0.01\,rad drops from 35\% to 4\%. The pipeline
+is then: drop zero-variance columns $\to$ signed log $\to$ \code{StandardScaler} $\to$
+\code{PCA}($n$) $\to$ per-component min--max to $[0,\pi]$, all fitted on training data.
+\code{--no-log} disables the transform for ablation.
+
+\subsection{Reproducible sampling and real sample sizes (I8, I12, I13)}
+All randomness now flows from the \code{--seeds} values: \code{np.random.default\_rng(seed)} for
+balancing, \code{random\_state=seed} for the split, PCA, \code{StratifiedKFold}, Platt scaling, the
+Random Forest and the shot-noise generator. Two runs with the same seed produce byte-identical
+results; this is verified in \code{tests/test\_core.py::test\_dedup\_and\_reproducible}. Classes are
+balanced by drawing from the whole (deduplicated) pool of each class, so \code{--samples 2000} now
+really gives 2000 samples (1000 per class in binary mode, 333 per class in multiclass mode)
+instead of 822. \code{--legacy} uses the same sampler, so that the original and improved protocols
+are always compared on the same number of flows. Numeric
+parsing uses \code{pd.to\_numeric(errors='coerce')} so stray strings cannot crash the cast. Zero
+padding to 58 columns was removed, and the true number of features entering PCA is printed.

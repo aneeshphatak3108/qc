@@ -1,0 +1,123 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,bm}
+\usepackage{booktabs,tabularx,longtable,multirow,array}
+\usepackage{graphicx,float,xcolor}
+\usepackage{fancyhdr}
+\usepackage{algorithm,algorithmic}
+\usepackage{verbatim,url}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc,fit,backgrounds,decorations.pathreplacing}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=green!40!black,urlcolor=blue!60!black]{hyperref}
+
+\newcommand{\ket}[1]{\left|#1\right\rangle}
+\newcommand{\bra}[1]{\left\langle#1\right|}
+\newcommand{\braket}[2]{\left\langle#1\middle|#2\right\rangle}
+% \code{}: typewriter text in which every underscore is a permitted line break
+\newcommand{\codeus}{\textunderscore\allowbreak}
+\newcommand{\code}[1]{{\small\ttfamily\let\_\codeus #1}}
+\emergencystretch=2.5em
+\newcommand{\R}{\mathbb{R}}
+\newtheorem{proposition}{Proposition}
+\newtheorem{definition}{Definition}
+
+\definecolor{qblue}{HTML}{2563EB}
+\definecolor{qorange}{HTML}{EA580C}
+\definecolor{qgreen}{HTML}{16A34A}
+\definecolor{qgrey}{HTML}{6B7280}
+\definecolor{boxbg}{HTML}{F1F5F9}
+
+% simple shaded "key finding" box without extra packages
+\newcommand{\keybox}[2]{%
+  \par\medskip\noindent
+  \colorbox{boxbg}{\parbox{\dimexpr\linewidth-2\fboxsep}{%
+  \textbf{\color{qblue}#1}\par\smallskip #2}}\par\medskip}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small Quantum Kernel Network Intrusion Detection}
+\fancyhead[R]{\small Improvement Report}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\setlength{\headheight}{14pt}
+\setlength{\parskip}{4pt}
+\renewcommand{\arraystretch}{1.15}
+
+\begin{document}
+
+\begin{titlepage}
+\centering
+\vspace*{2.5cm}
+{\LARGE\bfseries Network Intrusion Detection with\\[4pt] Quantum Kernel Support Vector Machines\par}
+\vspace{0.8cm}
+{\Large Project Documentation and Improvement Report\par}
+\vspace{0.4cm}
+{\large CIC-DDoS2019 \textbullet{} ZZ Entangling Feature Map \textbullet{} Google Cirq\par}
+\vspace{2cm}
+\begin{minipage}{0.82\linewidth}
+\small
+This report explains the whole project in detail: the dataset, the classical and quantum
+machine-learning theory behind it, and the original code and its results. It then documents
+every improvement made to the code and why, with derivations and verification, and reports a
+complete re-evaluation under a leakage-free, statistically controlled protocol. Exact commands
+to reproduce every result are given in \code{TESTING.md} and Appendix~\ref{app:commands}.
+\end{minipage}
+\vfill
+{\large Department of Computer Engineering\par}
+\vspace{0.3cm}
+{\normalsize \today\par}
+\end{titlepage}
+
+\begin{abstract}
+\noindent
+The project classifies network flows from the CIC-DDoS2019 benchmark as benign or as one of
+five DDoS attack types. It uses a quantum support vector machine (QSVM) whose kernel is the
+fidelity between quantum states prepared by a ZZ entangling feature map, simulated with
+Google Cirq. The original implementation reported that the entangled kernel beats a classical
+RBF-SVM by +1.8 points (binary) and +12 points (6-class). We audited the code and data and
+found five issues that affect those conclusions: (i)~65\% of the rows in the data file are exact
+duplicates, so about 30\% of test flows have an identical copy in the training set; (ii)~a
+min--max scaler was fitted on the whole dataset before the train/test split; (iii)~heavy-tailed
+flow features were mapped linearly onto rotation angles, which wastes most of the angle range;
+(iv)~neither the quantum kernel's bandwidth nor the SVM hyperparameters were tuned, and the
+classical baseline was never tuned at all; (v)~each kernel entry simulated two full circuits,
+so a $1600\times1600$ kernel at 16 qubits cost an estimated 44 hours.
+
+We kept the project's architecture and fixed each issue: deduplication, train-only
+preprocessing with a signed log transform, a bandwidth parameter $\alpha$ tuned by
+cross-validation together with $C$ (and $C,\gamma$ for the RBF baseline), and an exact
+NumPy statevector engine that uses the diagonal structure of the ZZ map. The engine matches
+Cirq to $10^{-7}$, simulates each sample once instead of twice per kernel entry, and computes
+the same 16-qubit kernels in about 26 seconds. We also added macro-F1, MCC, false-alarm and
+detection rates, multi-seed confidence intervals, McNemar significance tests, kernel-concentration
+and kernel--target-alignment diagnostics, the geometric-difference test of Huang et al., a
+Random-Forest reference, unit tests and a resumable benchmark suite.
+
+Under the corrected protocol, all models reach high accuracy, and the quantum kernel performs
+on par with a tuned classical kernel on the same features. The large advantages reported earlier
+come mainly from the leakage and from the untuned baseline, not from entanglement. The
+diagnostics explain why, and they show where a quantum kernel could still help.
+\end{abstract}
+
+\clearpage
+\tableofcontents
+\clearpage
+
+\input{sections/01_introduction}
+\input{sections/02_background}
+\input{sections/03_dataset}
+\input{sections/04_original}
+\input{sections/05_improvements_data}
+\input{sections/06_improvements_compute}
+\input{sections/07_improvements_model}
+\input{sections/08_evaluation_software}
+\input{sections/09_results}
+\input{sections/10_discussion}
+\appendix
+\input{sections/11_appendix}
+\input{sections/12_references}
+
+\end{document}

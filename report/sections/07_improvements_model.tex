@@ -1,0 +1,73 @@
+\section{Improvements III: Modelling}
+\label{sec:impmodel}
+
+\subsection{Kernel bandwidth $\alpha$ (I3)}
+\paragraph{Problem.} With $n$ qubits and inputs spread over $[0,\pi]$, the ZZ feature states of two
+different flows are nearly orthogonal. Roughly, each qubit and each pair contributes an
+independent ``random'' phase, and the overlap of two random states in dimension $2^n$ is of order
+$2^{-n}$. The experiments confirm this: at 16 qubits with $\alpha=1$ and 2 repetitions, the
+\emph{median} off-diagonal training kernel entry is about $2\times10^{-5}$ and 84--89\% of entries
+are below $10^{-3}$. The mean is higher (about 0.03, Table~\ref{tab:bandwidth}) only because a
+few near-identical flows still overlap strongly. An SVM can still
+\emph{separate} the training set with such a kernel, but each test prediction is then decided by
+a handful of nearest training points, and the kernel's geometry carries little information.
+
+\paragraph{Change.} All feature maps now take a bandwidth parameter. Angles from preprocessing
+are multiplied by $\alpha$ before encoding:
+\begin{equation}
+\ket{\phi_\alpha(\bm\theta)}=U(\alpha\bm\theta)\ket{0^n},\qquad \bm\theta\in[0,\pi]^n .
+\end{equation}
+Small $\alpha$ moves all states towards $U(\bm 0)\ket{0^n}$, raising off-diagonal kernel values.
+In the limit $\alpha\to0$ the kernel tends to the constant 1. For the separable $R_x$ map,
+$\alpha$ is exactly an RBF-like length-scale: $\cos^2(\alpha\Delta/2)\approx e^{-\alpha^2\Delta^2/4}$
+for small $\alpha\Delta$. For the ZZ map, the pair term
+$(\pi-\alpha\theta_i)(\pi-\alpha\theta_j)=\pi^2-\alpha\pi(\theta_i+\theta_j)+\alpha^2\theta_i\theta_j$
+shows that $\alpha$ also controls how strongly the \emph{product} (entangling) terms depend on the
+data, relative to the linear ones. $\alpha=1$ reproduces the original circuit exactly
+(\code{ZZFeatureMap} and the fast engine both take \code{alpha}).
+
+\subsection{Cross-validated tuning with equal budgets (I2)}
+\paragraph{Problem.} With $C=1$ and a fixed scale for both models, the comparison measures how
+well two \emph{default settings} happen to suit this dataset. RBF-SVM accuracy is very sensitive to
+$\gamma$ and $C$. The default \code{gamma='scale'} ($1/(d\cdot\mathrm{Var}(X))$) is a heuristic, not
+an optimum.
+
+\paragraph{Change.} \code{evaluation.tune\_quantum()} performs a grid search over
+$\alpha\in\{0.05,0.1,0.2,0.4,1.0\}$ and $C\in\{0.1,1,10,100\}$, scoring \emph{macro-F1} by 5-fold
+stratified CV \emph{on the training split only}. The expensive part, the kernel, is computed once
+per $\alpha$. Every $C$ and every fold then reuses sub-blocks $K[\text{tr},\text{tr}]$ and
+$K[\text{va},\text{tr}]$ of that one matrix, so the search costs 5 kernel computations rather than
+100 fits' worth. \code{tune\_rbf()} runs \code{GridSearchCV} for the RBF-SVM over the same
+$C$ grid and $\gamma\in\{\text{scale},0.01,0.03,0.1,0.3,1\}$, with the same folds, metric and seed.
+The best configuration is refitted on the full training split and evaluated once on the test set.
+Both models get 20--24 candidate configurations: an equal budget.
+
+\begin{verbatim}
+alpha, C, K_train, table = tune_quantum(
+    lambda a: make_kernel(a).compute_kernel_matrix(A_train, verbose=False),
+    y_train, args.alphas, args.Cs, seed=seed)
+\end{verbatim}
+
+\code{--no-tune --alpha A --C C} fixes the values instead. \code{--alphas} and \code{--Cs} change
+the grids.
+
+\subsection{Entanglement topology and depth}
+\code{entangling\_pairs(n, entanglement)} generalises the hard-coded adjacent pairs:
+\code{linear} $\{(i,i{+}1)\}$ (original, $n-1$ pairs), \code{circular} (adds $(n{-}1,0)$), and
+\code{full} (all $\binom n2$ pairs, the default in Qiskit's \code{ZZFeatureMap}). Both the Cirq
+circuit builder and the fast engine use the same pair list, and \code{--n-reps} sets the depth. These
+options answer the paper's ``higher-order entanglement'' future-work item within the existing
+circuit family.
+
+\subsection{All three paper methods in one pipeline (I10)}
+\code{--kernel rx} selects the separable $R_x$ map (Method 1), and \code{--sampling --shots s} adds
+finite-shot estimation to any kernel (Method 2). Together with the default ZZ map (Method 3), all
+methods now share one loader, one split per seed, one preprocessing object and one tuning
+protocol. The paper's comparisons used different $N$ for different methods (822 vs.\ 1028 binary
+test samples); here every method sees exactly the same flows.
+
+\subsection{Stronger classical references}
+Besides the tuned RBF-SVM on the \emph{same} PCA features, which isolates the effect of the kernel,
+\code{--extra-baselines} trains a Random Forest~\cite{breiman2001} (300 trees) on \emph{all}
+raw features without PCA. This is a typical practical NIDS baseline. It answers a different
+question: how much accuracy is left on the table by compressing to $n$ components at all?

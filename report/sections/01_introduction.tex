@@ -1,0 +1,75 @@
+\section{Introduction}
+\label{sec:intro}
+
+\subsection{Motivation}
+Distributed Denial-of-Service (DDoS) attacks overwhelm a target with traffic from many sources.
+They remain among the most frequent and most costly attacks on networked infrastructure. Modern
+DDoS campaigns often use \emph{reflection and amplification}: the attacker sends small requests
+with a spoofed source address to public servers (LDAP, MSSQL, Portmap/rpcbind, and so on), and
+those servers send much larger responses to the victim. Signature-based detection struggles
+against these attacks because the packets are individually legitimate. Detection therefore
+relies on statistical features of whole \emph{flows}: packet counts, sizes, inter-arrival times,
+TCP flags and rates. Those features are what machine-learning classifiers learn from.
+
+Quantum machine learning (QML) asks whether quantum computers can help with such learning
+problems. One of its most studied ideas is the \emph{quantum kernel method}. A classical
+data point $\bm{x}$ is encoded into a quantum state $\ket{\phi(\bm{x})}$ in a Hilbert space of
+dimension $2^n$. The overlap $K(\bm{x},\bm{x}')=|\braket{\phi(\bm{x})}{\phi(\bm{x}')}|^2$ is then
+used as the kernel of an ordinary support vector machine. Havlíček et al.~\cite{havlicek2019}
+proposed the \emph{ZZ feature map}, an entangling circuit whose kernel is believed to be hard to
+evaluate classically for large $n$. That hardness is a prerequisite for a quantum advantage.
+
+\subsection{The project}
+This project applies quantum kernel SVMs (QSVMs) to network intrusion detection on the
+CIC-DDoS2019 dataset~\cite{sharafaldin2019ddos}. The accompanying paper~\cite{ourpaper} compares three methods:
+\begin{enumerate}
+  \item an \textbf{Analytical kernel} built from single-qubit $R_x$ rotations. This is a separable
+        product state, so its kernel has the closed form $\prod_i\cos^2((b_i-a_i)/2)$;
+  \item a \textbf{Sampling kernel}, which estimates the same overlaps by running the circuit
+        $U^\dagger(\bm{a})U(\bm{b})$ for 1024 shots, as real hardware would;
+  \item a \textbf{ZZ entangling kernel}, which uses the Havlíček feature map and exact statevector simulation.
+\end{enumerate}
+All three are compared with a classical RBF-kernel SVM. The paper reports that the ZZ kernel wins
+in both settings: 98.79\% vs.\ 96.97\% in binary classification (benign vs.\ DDoS) and
+92.00\% vs.\ 80.00\% in 6-class classification. It concludes that entanglement is necessary for a
+quantum advantage on this task.
+
+\subsection{Goal of this report}
+The task was to \emph{build on the current state of the project}: improve the existing code
+without replacing it with something unrelated, then document the whole project and every change.
+The improved code keeps the same three modules (\code{data\_loader.py}, \code{qsvm.py},
+\code{main.py}), the same Cirq ZZ feature map class, the same CLI flags and the same dataset. We
+added two small modules (\code{preprocessing.py}, \code{evaluation.py}) and three supporting
+tools (\code{benchmark.py}, \code{make\_figures.py}, \code{tests/}). The original code is preserved
+unchanged in \code{legacy/}, and \code{main.py --legacy} reproduces its protocol exactly.
+
+The report has three parts:
+\begin{itemize}
+  \item \textbf{Part I: the project as it was} (Sections~\ref{sec:background}--\ref{sec:original}).
+        It covers the background theory (DDoS, SVMs, quantum computing, quantum kernels), the
+        dataset as it actually exists in this repository, and a walk-through and audit of the
+        original pipeline.
+  \item \textbf{Part II: the improvements} (Sections~\ref{sec:impdata}--\ref{sec:evalsw}).
+        They are grouped into data integrity, computation, modelling, and evaluation/software.
+        Each one comes with its motivation, the change, a derivation where needed, and how it was
+        verified.
+  \item \textbf{Part III: results and discussion} (Sections~\ref{sec:results}--\ref{sec:discussion}).
+        This part re-runs the paper's comparison under the corrected protocol with 5 random seeds,
+        adds ablations isolating each fix, and runs sweeps over bandwidth, qubit count, shots,
+        circuit architecture, feature set and training-set size. It then discusses what the
+        evidence says about quantum advantage on this task.
+\end{itemize}
+
+\keybox{Summary of findings}{%
+\begin{itemize}\itemsep0pt
+\item The data file contains 49{,}393 exact duplicate rows (65.9\%). With duplicates kept, about
+      30\% of test flows have an identical twin in the training set.
+\item The original kernel computation is exact but needed $2N^2$ circuit simulations. The new
+      engine needs $N$ and gives the same numbers to $10^{-7}$, with speed-ups of $10^3$--$10^5\times$
+      (Table~\ref{tab:speed}).
+\item With 16 qubits and the original angle scale, the ZZ kernel is \emph{concentrated}: the median
+      off-diagonal entry is $\approx2\times10^{-5}$ and the kernel matrix is close to the identity. A tuned bandwidth
+      $\alpha<1$ fixes this.
+\item Once the classical baseline gets the same preprocessing and the same tuning budget, the
+      large QSVM advantages disappear. Section~\ref{sec:results} gives the numbers.
+\end{itemize}}

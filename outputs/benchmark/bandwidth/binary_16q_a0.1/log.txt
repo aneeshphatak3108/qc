@@ -1,0 +1,59 @@
+========================================================================
+  QUANTUM NETWORK DEFENSE — CIC-DDoS2019 Pipeline
+  Kernel: zz | protocol: improved
+========================================================================
+
+[1/6] Loading ./output.csv (max=2,000, seed=0)...
+
+[2/6] Train: 1,600 | Test: 400 | test rows with an exact copy in train: 0.0%
+      Preprocessing: 49 features → PCA 16 (98.8% variance, fitted on train only)
+
+[3/6] QSVM [zz, 16q, reps=2, linear] tuning α, C by 5-fold CV on train
+  Kernel 400×1600 computed in 17.49s [zz, backend=fast]
+      α=0.1, C=100.0 | accuracy 100.00% | macro-F1 1.0000 | train 17.3s | infer 17.5s
+[4/6] Classical SVM (RBF) on the same PCA features...
+      {'C': 100.0, 'gamma': 'scale'} | accuracy 99.50% | macro-F1 0.9950
+[5/6] Random Forest (all raw features, no PCA)...
+      accuracy 99.75%
+[6/6] Quantum kernel: off-diag mean 0.3354 ± 0.2665 | alignment 0.4807 | geometric difference g=2.07 (√N=20.0)
+      Plot: outputs/benchmark/bandwidth/binary_16q_a0.1/results_seed0.png
+
+[1/6] Loading ./output.csv (max=2,000, seed=1)...
+
+[2/6] Train: 1,600 | Test: 400 | test rows with an exact copy in train: 0.0%
+      Preprocessing: 49 features → PCA 16 (98.8% variance, fitted on train only)
+
+[3/6] QSVM [zz, 16q, reps=2, linear] tuning α, C by 5-fold CV on train
+  Kernel 400×1600 computed in 16.74s [zz, backend=fast]
+      α=0.1, C=100.0 | accuracy 99.50% | macro-F1 0.9950 | train 20.7s | infer 16.7s
+[4/6] Classical SVM (RBF) on the same PCA features...
+      {'C': 100.0, 'gamma': 0.1} | accuracy 99.50% | macro-F1 0.9950
+[5/6] Random Forest (all raw features, no PCA)...
+      accuracy 99.25%
+[6/6] Quantum kernel: off-diag mean 0.3549 ± 0.2806 | alignment 0.3244 | geometric difference g=2.56 (√N=20.0)
+
+[1/6] Loading ./output.csv (max=2,000, seed=2)...
+
+[2/6] Train: 1,600 | Test: 400 | test rows with an exact copy in train: 0.0%
+      Preprocessing: 49 features → PCA 16 (98.7% variance, fitted on train only)
+
+[3/6] QSVM [zz, 16q, reps=2, linear] tuning α, C by 5-fold CV on train
+  Kernel 400×1600 computed in 10.19s [zz, backend=fast]
+      α=0.1, C=100.0 | accuracy 99.25% | macro-F1 0.9925 | train 12.5s | infer 10.2s
+[4/6] Classical SVM (RBF) on the same PCA features...
+      {'C': 100.0, 'gamma': 'scale'} | accuracy 99.25% | macro-F1 0.9925
+[5/6] Random Forest (all raw features, no PCA)...
+      accuracy 99.50%
+[6/6] Quantum kernel: off-diag mean 0.3489 ± 0.2650 | alignment 0.4300 | geometric difference g=2.02 (√N=20.0)
+
+========================================================================
+  RESULTS SUMMARY  (binary, 3 seed(s): [0, 1, 2])
+========================================================================
+  Method                  Accuracy        Macro-F1             AUC    FalseAlarm
+  QSVM (zz)           99.58 ± 0.31    99.58 ± 0.31    99.89 ± 0.10   0.00 ± 0.00
+  RBF-SVM             99.42 ± 0.12    99.42 ± 0.12    99.91 ± 0.13   0.33 ± 0.47
+  Random Forest       99.50 ± 0.20    99.50 ± 0.20    99.98 ± 0.02   0.17 ± 0.24
+
+  McNemar p-value (QSVM vs RBF) per seed: 0.5, 1, 1
+  Saved: outputs/benchmark/bandwidth/binary_16q_a0.1/results.json
+========================================================================

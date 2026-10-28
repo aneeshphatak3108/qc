@@ -1,0 +1,131 @@
+\section{The Original Pipeline and Its Audit}
+\label{sec:original}
+
+\subsection{Architecture}
+The original code (preserved verbatim in \code{legacy/}) has three modules. Figure~\ref{fig:pipeline-old}
+shows the data flow.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=0.35cm and 0.45cm,
+  box/.style={draw,rounded corners,fill=white,align=center,font=\scriptsize,minimum height=0.95cm,text width=2.05cm},
+  bad/.style={box,fill=red!8,draw=red!60!black},
+  arr/.style={-{Stealth},thick}]
+\node[box] (csv) {\code{output.csv}\\75k rows};
+\node[bad,right=of csv] (clean) {clean labels,\\inf$\to$0\\\textit{keep duplicates}};
+\node[bad,right=of clean] (mm) {MinMax$\to[0,\pi]$\\on \textbf{all} data\\pad to 58};
+\node[box,right=of mm] (bal) {balance\\(unseeded)};
+\node[box,right=of bal] (split) {80/20\\stratified split};
+\node[box,below=0.9cm of split] (pca) {PCA$\to n$\\(train)\\min--max $[0,\pi]$};
+\node[box,left=of pca] (zz) {ZZ map\\$\alpha=1$, $r$ reps\\Cirq};
+\node[bad,left=of zz] (ker) {$K_{ij}$: 2 circuit\\sims per entry\\$O(N^2)$};
+\node[box,left=of ker] (svc) {SVC(precomp.)\\$C=1$};
+\node[bad,left=of svc] (rbf) {RBF-SVM\\$C{=}1,\gamma$=scale\\(untuned)};
+\draw[arr] (csv)--(clean); \draw[arr] (clean)--(mm); \draw[arr] (mm)--(bal); \draw[arr] (bal)--(split);
+\draw[arr] (split)--(pca); \draw[arr] (pca)--(zz); \draw[arr] (zz)--(ker); \draw[arr] (ker)--(svc);
+\draw[arr,dashed] (pca.south) -- ++(0,-0.35) -| node[pos=0.25,below,font=\scriptsize]{same PCA features} (rbf.south);
+\end{tikzpicture}
+\caption{Original pipeline. Red boxes mark steps changed by this work.}
+\label{fig:pipeline-old}
+\end{figure}
+
+\paragraph{\code{data\_loader.py}.} \code{load\_csv()} reads the CSV, strips column names, removes
+repeated header rows, and draws up to $3\times$\code{max\_samples} rows at random
+(\code{random\_state=42}). It builds binary or multiclass labels, selects up to 61 named feature
+columns, replaces $\pm\infty$/NaN by 0, drops zero-variance columns, and pads or trims to exactly 58
+columns. It then undersamples each class to $\min(\text{smallest class},\,\text{max\_samples}/k)$
+using the \emph{unseeded} global \code{np.random}. Finally it fits a \code{MinMaxScaler} to $[0,\pi]$
+on \emph{all} remaining rows and returns them.
+
+\paragraph{\code{qsvm.py}.} \code{ZZFeatureMap.build\_encoding\_circuit()} builds the circuit of
+Figure~\ref{fig:circuit} in Cirq. \code{build\_kernel\_circuit()} builds $U^\dagger(\bm a)U(\bm b)$
+plus measurement, for the sampling mode. \code{QuantumKernel.\_kernel\_statevector(a,b)} simulates
+\emph{both} circuits with \code{cirq.Simulator} and returns $|\langle\psi_a|\psi_b\rangle|^2$.
+\code{compute\_kernel\_matrix()} loops over all $(i,j)$ pairs, using symmetry for the training
+matrix. \code{QSVM.fit()} fits PCA to \code{n\_qubits} components on the training rows, rescales
+each component to $[0,\pi]$ with training min/max, computes $K_{\text{train}}$ and fits
+\code{SVC(kernel='precomputed', C=1, probability=True)}. \code{predict()} and
+\code{predict\_proba()} \emph{each} rebuild the full test kernel.
+
+\paragraph{\code{main.py}.} \code{run\_pipeline()} loads the data, splits it 80/20 (stratified,
+\code{random\_state=42}), truncates the training set to 3000 rows, trains the QSVM, then trains
+\code{SVC(kernel='rbf', C=1, gamma='scale')} on standardised PCA features (same projection) and
+prints accuracy, a classification report, timings and a 4-panel figure (two confusion matrices,
+ROC, accuracy bars).
+
+\subsection{Reported results}
+Table~\ref{tab:paper} reproduces the paper's headline numbers. Only the ZZ method exists in the
+code. The Analytical and Sampling variants were run from earlier versions that are not in the
+repository.
+
+\begin{table}[H]
+\centering\small
+\caption{Results reported in the paper~\cite{ourpaper} (single run each).}
+\label{tab:paper}
+\begin{tabular}{llccc c}
+\toprule
+Method & Mode & QSVM acc. & SVM acc. & QSVM AUC & $N_\text{test}$ \\
+\midrule
+Analytical ($R_x$, 16q) & binary & 97.57\% & 98.54\% & 0.987 & 1028 \\
+Analytical ($R_x$, 16q) & multiclass & 89.63\% & 87.68\% & -- & 3084 \\
+Sampling (1024 shots)   & binary & 98.54\% & 98.54\% & 0.992 & 1028 \\
+Sampling (1024 shots)   & multiclass & 89.63\% & 87.68\% & -- & 3084 \\
+ZZ (8q, 2 reps)         & binary & \textbf{98.79\%} & 96.97\% & 0.999 & 822 \\
+ZZ (16q, 1 rep)         & multiclass & \textbf{92.00\%} & 80.00\% & -- & 996 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Audit findings}
+We read every line of the three modules and checked the data file. Table~\ref{tab:audit} lists
+the issues found, ordered roughly by how much they can change the conclusions.
+
+\begin{table}[H]
+\centering\small
+\caption{Issues found in the original pipeline.}
+\label{tab:audit}
+\begin{tabularx}{\linewidth}{c l X c}
+\toprule
+\# & Issue & Effect & Severity \\
+\midrule
+I1 & Exact duplicates kept & 65.9\% of rows are duplicates; $\approx$30\% of test flows have a
+  training twin (measured). Accuracy is inflated by memorisation. & High \\
+I2 & Untuned, unequal baselines & QSVM and RBF both fixed at $C=1$; RBF $\gamma$ fixed at
+  \code{'scale'}. The comparison measures default settings, not models. & High \\
+I3 & Kernel concentration & 16-qubit ZZ kernel with $\alpha=1$: median off-diagonal entry
+  $\approx 2\times10^{-5}$, 84--89\% of entries below $10^{-3}$, so $K\approx I$ (measured in Section~\ref{sec:results}). No bandwidth control. & High \\
+I4 & Cost $2N^2$ simulations & Two full circuit simulations per kernel entry, and the test kernel
+  is computed twice. A 1600-sample, 16-qubit run is estimated at $\approx$44\,h. & High (practical) \\
+I5 & Global MinMax before split & Test-set min/max leak into the training features. & Medium \\
+I6 & Linear encoding of heavy tails & For most features, 90\% of flows occupy $<5\%$ of
+  $[0,\pi]$, so qubits receive near-constant angles. & Medium \\
+I7 & Single run, no significance & Differences of 1--2 points on 400--1000 test flows are within
+  sampling noise. There are no error bars and no tests. & Medium \\
+I8 & Non-reproducible sampling & Class balancing uses unseeded \code{np.random}; Platt scaling
+  is unseeded. Each run draws different data. & Medium \\
+I9 & Inconsistent sample sizes & The paper compares methods on different $N$ (822 vs.\ 1028 test). & Medium \\
+I10 & Missing methods & The Analytical and Sampling kernels in the paper are not in the code. & Medium \\
+I11 & Narrow metrics & Accuracy only. IDS operators care about false-alarm rate and detection
+  rate. Multiclass AUC is not reported. & Low \\
+I12 & Cosmetic & Zero-padding to 58 columns; hard-coded ``58 $\to$'' message; silent truncation
+  to 3000 training rows. & Low \\
+I13 & Pre-sampling shrinks the data & $3\times$\code{max\_samples} random rows are drawn \emph{before}
+  balancing. BENIGN is only 6.8\% of the file, so \code{--samples 2000} yields 411 BENIGN rows and
+  822 binary samples in total (165 test flows). & Medium \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{How small the binary test set was.} Running the original loader confirms I13: with the
+default \code{--samples 2000} it returns exactly 822 binary samples, the $N$ quoted in the paper for
+the ZZ binary experiment, so the test split had 165 flows. The reported 98.79\% vs.\ 96.97\% is then
+$163/165$ vs.\ $160/165$, a difference of \textbf{three test flows}. Even if all three were cases
+where only the QSVM was right, the exact McNemar test would give $p=0.25$. The multiclass figures
+(92.00\% vs.\ 80.00\%, $N=996=6\times166$) correspond to a 200-flow test set. The 12-point gap is
+large, but it comes from a single split with the issues above.
+
+None of these issues is unusual. Duplicate leakage in particular is a well-documented trap in
+intrusion-detection benchmarks~\cite{engelen2021,kaufman2012}, and untuned baselines are the most
+common cause of overstated quantum advantage~\cite{bowles2024}. The core idea and the quantum
+code itself are sound. The fast engine reproduces the original kernel values exactly
+(Section~\ref{sec:verify}).

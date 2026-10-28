@@ -1,0 +1,92 @@
+========================================================================
+  QUANTUM NETWORK DEFENSE — CIC-DDoS2019 Pipeline
+  Kernel: zz | protocol: LEGACY (original)
+========================================================================
+
+[1/6] Loading ./output.csv (max=2,000, seed=0)...
+
+[2/6] Train: 1,600 | Test: 400 | test rows with an exact copy in train: 30.2%
+      Preprocessing: 58 features → PCA 8 (95.6% variance, fitted on train only)
+
+[3/6] QSVM [zz, 8q, reps=2, linear] 
+  Kernel 1600×1600 computed in 0.13s [zz, backend=fast]
+  Kernel 400×1600 computed in 0.02s [zz, backend=fast]
+      α=1.0, C=1.0 | accuracy 99.75% | macro-F1 0.9975 | train 0.3s | infer 0.0s
+[4/6] Classical SVM (RBF) on the same PCA features...
+      {'C': 1.0, 'gamma': 'scale'} | accuracy 97.25% | macro-F1 0.9725
+[5/6] Random Forest (all raw features, no PCA)...
+      accuracy 100.00%
+[6/6] Quantum kernel: off-diag mean 0.0822 ± 0.2410 | alignment 0.3002 | geometric difference g=64.69 (√N=20.0)
+      Plot: outputs/benchmark/headline/binary_zz_legacy/results_seed0.png
+
+[1/6] Loading ./output.csv (max=2,000, seed=1)...
+
+[2/6] Train: 1,600 | Test: 400 | test rows with an exact copy in train: 28.0%
+      Preprocessing: 58 features → PCA 8 (94.7% variance, fitted on train only)
+
+[3/6] QSVM [zz, 8q, reps=2, linear] 
+  Kernel 1600×1600 computed in 0.18s [zz, backend=fast]
+  Kernel 400×1600 computed in 0.03s [zz, backend=fast]
+      α=1.0, C=1.0 | accuracy 99.00% | macro-F1 0.9900 | train 0.4s | infer 0.0s
+[4/6] Classical SVM (RBF) on the same PCA features...
+      {'C': 1.0, 'gamma': 'scale'} | accuracy 97.00% | macro-F1 0.9700
+[5/6] Random Forest (all raw features, no PCA)...
+      accuracy 99.50%
+[6/6] Quantum kernel: off-diag mean 0.0792 ± 0.2409 | alignment 0.2982 | geometric difference g=72.03 (√N=20.0)
+
+[1/6] Loading ./output.csv (max=2,000, seed=2)...
+
+[2/6] Train: 1,600 | Test: 400 | test rows with an exact copy in train: 29.5%
+      Preprocessing: 58 features → PCA 8 (94.6% variance, fitted on train only)
+
+[3/6] QSVM [zz, 8q, reps=2, linear] 
+  Kernel 1600×1600 computed in 0.22s [zz, backend=fast]
+  Kernel 400×1600 computed in 0.04s [zz, backend=fast]
+      α=1.0, C=1.0 | accuracy 99.25% | macro-F1 0.9925 | train 0.8s | infer 0.0s
+[4/6] Classical SVM (RBF) on the same PCA features...
+      {'C': 1.0, 'gamma': 'scale'} | accuracy 97.75% | macro-F1 0.9775
+[5/6] Random Forest (all raw features, no PCA)...
+      accuracy 100.00%
+[6/6] Quantum kernel: off-diag mean 0.0807 ± 0.2412 | alignment 0.2994 | geometric difference g=65.15 (√N=20.0)
+
+[1/6] Loading ./output.csv (max=2,000, seed=3)...
+
+[2/6] Train: 1,600 | Test: 400 | test rows with an exact copy in train: 31.0%
+      Preprocessing: 58 features → PCA 8 (94.0% variance, fitted on train only)
+
+[3/6] QSVM [zz, 8q, reps=2, linear] 
+  Kernel 1600×1600 computed in 0.22s [zz, backend=fast]
+  Kernel 400×1600 computed in 0.03s [zz, backend=fast]
+      α=1.0, C=1.0 | accuracy 99.75% | macro-F1 0.9975 | train 0.7s | infer 0.1s
+[4/6] Classical SVM (RBF) on the same PCA features...
+      {'C': 1.0, 'gamma': 'scale'} | accuracy 97.25% | macro-F1 0.9725
+[5/6] Random Forest (all raw features, no PCA)...
+      accuracy 100.00%
+[6/6] Quantum kernel: off-diag mean 0.0735 ± 0.2321 | alignment 0.2940 | geometric difference g=66.14 (√N=20.0)
+
+[1/6] Loading ./output.csv (max=2,000, seed=4)...
+
+[2/6] Train: 1,600 | Test: 400 | test rows with an exact copy in train: 23.2%
+      Preprocessing: 58 features → PCA 8 (94.7% variance, fitted on train only)
+
+[3/6] QSVM [zz, 8q, reps=2, linear] 
+  Kernel 1600×1600 computed in 0.17s [zz, backend=fast]
+  Kernel 400×1600 computed in 0.03s [zz, backend=fast]
+      α=1.0, C=1.0 | accuracy 99.75% | macro-F1 0.9975 | train 0.4s | infer 0.0s
+[4/6] Classical SVM (RBF) on the same PCA features...
+      {'C': 1.0, 'gamma': 'scale'} | accuracy 97.50% | macro-F1 0.9750
+[5/6] Random Forest (all raw features, no PCA)...
+      accuracy 100.00%
+[6/6] Quantum kernel: off-diag mean 0.0749 ± 0.2382 | alignment 0.2915 | geometric difference g=60.68 (√N=20.0)
+
+========================================================================
+  RESULTS SUMMARY  (binary, 5 seed(s): [0, 1, 2, 3, 4])
+========================================================================
+  Method                  Accuracy        Macro-F1             AUC    FalseAlarm
+  QSVM (zz)           99.50 ± 0.32    99.50 ± 0.32    99.77 ± 0.39   0.40 ± 0.37
+  RBF-SVM             97.35 ± 0.25    97.35 ± 0.26    99.59 ± 0.32   5.00 ± 0.55
+  Random Forest       99.90 ± 0.20    99.90 ± 0.20    99.99 ± 0.01   0.00 ± 0.00
+
+  McNemar p-value (QSVM vs RBF) per seed: 0.00635, 0.0215, 0.0312, 0.00195, 0.0117
+  Saved: outputs/benchmark/headline/binary_zz_legacy/results.json
+========================================================================

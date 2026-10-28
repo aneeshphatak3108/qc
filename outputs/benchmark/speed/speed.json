@@ -1,0 +1,47 @@
+{
+  "n_train": 1600,
+  "n_test": 400,
+  "rows": [
+    {
+      "n_qubits": 4,
+      "legacy_per_entry_s": 0.008623051643371581,
+      "legacy_total_s_est": 22081.910648345947,
+      "legacy_sampling_per_entry_s": 0.011394023895263672,
+      "legacy_sampling_total_s_est": 29177.81639099121,
+      "fast_states_s": 0.0017688274383544922,
+      "fast_total_s": 0.06414127349853516,
+      "gram_s": 0.062372446060180664,
+      "cirq_cached_total_s_est": 8.52639889717102
+    },
+    {
+      "n_qubits": 8,
+      "legacy_per_entry_s": 0.02472076416015625,
+      "legacy_total_s_est": 63304.932861328125,
+      "legacy_sampling_per_entry_s": 0.023778247833251952,
+      "legacy_sampling_total_s_est": 60891.3370513916,
+      "fast_states_s": 0.00946807861328125,
+      "fast_total_s": 0.16130423545837402,
+      "gram_s": 0.15183615684509277,
+      "cirq_cached_total_s_est": 17.321335554122925
+    },
+    {
+      "n_qubits": 12,
+      "legacy_per_entry_s": 0.034266877174377444,
+      "legacy_total_s_est": 87750.61906814575,
+      "fast_states_s": 0.3725392818450928,
+      "fast_total_s": 0.8837141990661621,
+      "gram_s": 0.5111749172210693,
+      "cirq_cached_total_s_est": 27.674513578414917
+    },
+    {
+      "n_qubits": 16,
+      "legacy_per_entry_s": 0.061559629440307614,
+      "legacy_total_s_est": 157641.89907073975,
+      "fast_states_s": 14.227614164352417,
+      "fast_total_s": 26.408254861831665,
+      "gram_s": 12.180640697479248,
+      "cirq_cached_total_s_est": 67.50741243362427
+    }
+  ],
+  "legacy_entries": 2560800
+}
