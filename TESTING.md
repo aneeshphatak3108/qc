@@ -155,3 +155,22 @@ cd report && pdflatex report.tex && pdflatex report.tex && cd ..   # → report/
 ```
 
 To rerun one experiment from scratch, delete its folder first, e.g. `rm -rf outputs/benchmark/shots`.
+
+## 10. Intermediate results, other feature maps, real hardware
+
+```bash
+python main.py --n-qubits 8 --show 12            # larger kernel excerpts (0 disables printing)
+python -c "import numpy as np; z = np.load('outputs/binary_zz_8q/kernels_seed42.npz'); print(z['K_train'][:5, :5])"
+
+python main.py --n-qubits 8 --kernel pauli --paulis Y ZZ           # Pauli feature map
+python main.py --n-qubits 8 --kernel pauli --paulis Z               # Z map (no entanglement)
+python main.py --n-qubits 8 --data-map cosine --n-reps 3            # ZZ variant
+python feature_map_study.py                     # full comparison (≈1 h, resumable)
+python feature_map_study.py --summary           # rebuild outputs/feature_maps/summary.md + figure
+
+./venv-qiskit/bin/python -m unittest tests.test_qiskit -v           # our maps == Qiskit's
+./venv-qiskit/bin/python hardware.py --dry-run                      # no QPU time used
+export TOKEN=<api key> INSTANCE=<instance CRN>                     # IBM Cloud account
+./venv-qiskit/bin/python hardware.py                                # real IBM QPU, 8 qubits
+./venv-qiskit/bin/python hardware.py --job-id <id>                  # resume a queued job
+```

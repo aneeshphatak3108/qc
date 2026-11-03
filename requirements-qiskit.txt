@@ -1,0 +1,11 @@
+# Second environment for hardware.py and tests/test_qiskit.py (Qiskit needs Python >= 3.10).
+# Tested with Python 3.12
+qiskit==2.6.1
+qiskit-ibm-runtime==0.51.0
+qiskit-aer==0.18.2
+cirq-core==1.7.0
+numpy==2.5.4
+scipy==1.18.1
+scikit-learn==1.9.1
+pandas==3.0.6
+matplotlib==3.11.2

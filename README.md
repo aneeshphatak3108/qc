@@ -36,7 +36,44 @@ python main.py --legacy --n-qubits 8 # original protocol, for comparison
 python main.py --mode multiclass --n-qubits 8
 ```
 
-Each run prints a summary table and writes `outputs/<run>/results.json` plus a figure.
+Each run prints its intermediate results as well as the summary table: the rotation angles fed to
+the circuit, excerpts and statistics of the training and test kernel matrices (class-by-class mean
+similarity, eigenvalue spectrum), the support vectors, the SVM decision values of the first test
+flows, and the RBF kernel on the same flows for comparison (`--show N` sets the excerpt size). It
+writes `outputs/<run>/results.json`, a figure, and the full matrices in `kernels_seed<seed>.npz`.
+
+### Other feature maps
+
+```bash
+python main.py --n-qubits 8 --kernel pauli --paulis Y ZZ          # any Pauli strings
+python main.py --n-qubits 8 --kernel pauli --paulis Z ZZ ZZZ --entanglement full
+python main.py --n-qubits 8 --n-reps 3 --data-map cosine           # ZZ with another data map
+python feature_map_study.py      # ZZ settings + 8 other maps, both tasks, 3 seeds (~1 h)
+```
+
+`--kernel pauli` is a general Pauli feature map (the same circuits as Qiskit's `PauliFeatureMap`;
+`tests/test_qiskit.py` checks this). `--data-map` sets the function φ applied to the multi-qubit
+terms: `havlicek` (π−xᵢ)(π−xⱼ) (the default), `product`, `cosine` or `exp`.
+
+### Real IBM quantum hardware (8 qubits)
+
+The Qiskit stack needs Python ≥ 3.10, so it lives in a second environment:
+
+```bash
+python3.12 -m venv venv-qiskit
+./venv-qiskit/bin/pip install -r requirements-qiskit.txt
+./venv-qiskit/bin/python hardware.py --dry-run          # exact / shot-noise / noisy-simulator only
+export TOKEN=<IBM Cloud API key> INSTANCE=<instance CRN>     # from quantum.cloud.ibm.com
+./venv-qiskit/bin/python hardware.py                   # least-busy QPU
+./venv-qiskit/bin/python hardware.py --job-id <id>     # fetch a finished job
+```
+
+`hardware.py` estimates the kernel with compute–uncompute circuits on the QPU and compares it with
+the exact kernel, the exact kernel with shot noise, and an Aer simulation using the device's noise
+model. Both noisy kernels are also shown after device-noise mitigation. The script prints kernel
+excerpts from every source and a comparison table (accuracy, agreement with the exact QSVM,
+kernel error, measured K(x,x), alignment), and saves `outputs/hardware/<run>/`. The job ID is saved
+in `job.json` as soon as the job is submitted, so a long queue can be resumed later.
 
 ## Repository layout
 
@@ -45,11 +82,13 @@ Each run prints a summary table and writes `outputs/<run>/results.json` plus a f
 | `main.py` | Pipeline and CLI (`python main.py --help`) |
 | `data_loader.py` | Reads `output.csv`, cleans it, deduplicates, takes a balanced sample |
 | `preprocessing.py` | Train-only log transform, scaling, PCA, conversion to angles |
-| `qsvm.py` | ZZ / Rx feature maps (Cirq), fast exact statevector engine, QSVM |
+| `qsvm.py` | ZZ / Rx / general Pauli feature maps (Cirq), fast exact statevector engines, QSVM |
 | `evaluation.py` | Metrics, CV tuning, McNemar test, kernel diagnostics |
 | `benchmark.py` | Every experiment in the report (resumable) |
+| `feature_map_study.py` | ZZ settings and other feature maps compared (resumable) |
+| `hardware.py` | IBM quantum hardware run and comparison with simulation |
 | `make_figures.py` | Builds report figures and tables from `outputs/benchmark/` |
-| `tests/`, `run_tests.sh` | Unit tests and end-to-end checks |
+| `tests/`, `run_tests.sh` | Unit tests (incl. Qiskit equivalence) and end-to-end checks |
 | `legacy/` | The original, unmodified implementation |
 | `outputs/benchmark/` | Results (`results.json`) of every benchmark run |
 | `report/` | LaTeX report and compiled `report.pdf` |
@@ -57,14 +96,9 @@ Each run prints a summary table and writes `outputs/<run>/results.json` plus a f
 
 ## Documentation
 
-- [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md): the full explanation, covering the theory, the data,
-  the audit, every change, the results and an FAQ.
 - [`TESTING.md`](TESTING.md): copy-paste commands for every test and experiment.
 - [`report/report.pdf`](report/report.pdf): the formal report, with derivations and every table
   and figure.
-
-The original paper (`qc_comsis_2.pdf`), referenced in the guide, is not included in this
-repository.
 
 ## Data
 

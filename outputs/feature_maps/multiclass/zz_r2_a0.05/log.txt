@@ -1,0 +1,301 @@
+========================================================================
+  QUANTUM NETWORK DEFENSE — CIC-DDoS2019 Pipeline
+  Kernel: zz | protocol: improved
+========================================================================
+
+[1/6] Loading ./output.csv (max=2,000, seed=0)...
+
+[2/6] Train: 1,598 | Test: 400 | test rows with an exact copy in train: 0.8%
+      Preprocessing: 49 features → PCA 8 (90.1% variance, fitted on train only)
+      Rotation angles θ = preprocessed training flows (first 8 of 1598 rows, one column per qubit, radians):
+       0.533  1.419  0.957  0.715  0.973  0.803  1.083  1.087
+       1.495  2.532  0.954  1.783  1.440  1.799  1.728  0.631
+       1.459  2.475  1.173  0.600  0.795  0.850  1.098  1.361
+       0.399  1.463  0.949  0.707  1.228  1.421  1.433  1.409
+       1.889  1.333  0.162  0.923  0.738  0.900  1.217  1.382
+       0.149  1.409  1.161  0.498  1.189  0.767  1.205  1.195
+       0.329  1.577  1.081  0.545  1.186  0.587  1.310  1.163
+       0.528  1.446  0.934  0.711  1.005  1.047  0.876  1.135
+
+[3/6] QSVM [zz, 8q, reps=2, linear] tuning α, C by 5-fold CV on train
+  Kernel 400×1598 computed in 0.02s [zz, backend=fast]
+      Selected α=0.05, C=100.0. Intermediate results:
+
+      Training kernel K_train[i,j] = |⟨φ(xᵢ)|φ(xⱼ)⟩|²  shape 1598×1598, first 8×8 block (row/column label in brackets):
+                [MSSQL] [BENIGN] [Portma]  [MSSQL]    [Syn]   [LDAP]  [MSSQL]  [MSSQL]
+        [MSSQL]  1.0000   0.7120   0.8647   0.9438   0.9229   0.9918   0.9945   0.9970
+       [BENIGN]  0.7120   1.0000   0.7970   0.7850   0.7005   0.6968   0.7177   0.7261
+       [Portma]  0.8647   0.7970   1.0000   0.8144   0.8501   0.8356   0.8743   0.8609
+        [MSSQL]  0.9438   0.7850   0.8144   1.0000   0.8783   0.9583   0.9506   0.9508
+          [Syn]  0.9229   0.7005   0.8501   0.8783   1.0000   0.8882   0.9095   0.9166
+         [LDAP]  0.9918   0.6968   0.8356   0.9583   0.8882   1.0000   0.9952   0.9896
+        [MSSQL]  0.9945   0.7177   0.8743   0.9506   0.9095   0.9952   1.0000   0.9892
+        [MSSQL]  0.9970   0.7261   0.8609   0.9508   0.9166   0.9896   0.9892   1.0000
+      off-diagonal entries: mean 0.8689  std 0.1050  min 0.2006  max 1.0000  median 0.8766  | diagonal mean 1.0000
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     LDAP    MSSQL   Portma      Syn      UDP
+          BENIGN   0.8351   0.7890   0.8017   0.8232   0.8137   0.7844
+            LDAP   0.7890   0.9586   0.9623   0.8575   0.8473   0.9396
+           MSSQL   0.8017   0.9623   0.9675   0.8693   0.8598   0.9406
+          Portma   0.8232   0.8575   0.8693   0.8609   0.8747   0.8425
+             Syn   0.8137   0.8473   0.8598   0.8747   0.9481   0.8526
+             UDP   0.7844   0.9396   0.9406   0.8425   0.8526   0.9927
+      eigenvalues: largest 1395.68, 76.04, 34.17, 28.84, 20.72 | smallest -7.02e-05 | effective rank 1.3 of 1598 | top-5 share 97.3%
+
+      Test kernel K_test[i,j] = |⟨φ(x_test,i)|φ(x_train,j)⟩|²  shape 400×1598, first 8×8 block (row/column label in brackets):
+                [MSSQL] [BENIGN] [Portma]  [MSSQL]    [Syn]   [LDAP]  [MSSQL]  [MSSQL]
+          [UDP]  0.9744   0.6851   0.7961   0.9248   0.9266   0.9576   0.9559   0.9693
+          [UDP]  0.9721   0.6842   0.7869   0.9265   0.9217   0.9561   0.9519   0.9690
+       [BENIGN]  0.6358   0.7460   0.6584   0.6513   0.6268   0.6295   0.6522   0.6311
+       [Portma]  0.8556   0.7674   0.9965   0.7853   0.8368   0.8223   0.8627   0.8505
+          [Syn]  0.8665   0.7588   0.8651   0.8683   0.9503   0.8390   0.8612   0.8751
+       [Portma]  0.8520   0.7972   0.9995   0.8046   0.8366   0.8233   0.8626   0.8484
+       [Portma]  0.9091   0.7633   0.9531   0.8711   0.9586   0.8786   0.9112   0.9020
+       [BENIGN]  0.6327   0.6838   0.5742   0.6431   0.5980   0.6332   0.6459   0.6330
+      all entries: mean 0.8707  std 0.1034  min 0.2026  max 1.0000  median 0.8799
+      mean kernel value by class (row class × column class):
+                   BENIGN     LDAP    MSSQL   Portma      Syn      UDP
+          BENIGN   0.8377   0.7894   0.8013   0.8226   0.8121   0.7849
+            LDAP   0.7888   0.9599   0.9631   0.8568   0.8446   0.9403
+           MSSQL   0.7998   0.9597   0.9657   0.8668   0.8563   0.9356
+          Portma   0.8300   0.8792   0.8899   0.8704   0.8797   0.8659
+             Syn   0.8131   0.8483   0.8598   0.8721   0.9424   0.8592
+             UDP   0.7840   0.9392   0.9400   0.8422   0.8526   0.9931
+
+      SVM: 611 support vectors of 1598 training flows (BENIGN=63, LDAP=114, MSSQL=162, Portmap=176, Syn=76, UDP=20)
+      first 8 test flows: true → predicted (class probabilities)
+        #0        UDP → UDP      0.00 0.01 0.00 0.00 0.00 0.98  ok
+        #1        UDP → UDP      0.00 0.01 0.00 0.00 0.00 0.98  ok
+        #2     BENIGN → BENIGN   0.99 0.00 0.00 0.00 0.00 0.00  ok
+        #3    Portmap → Portmap  0.00 0.02 0.00 0.75 0.23 0.00  ok
+        #4        Syn → Syn      0.00 0.02 0.00 0.01 0.97 0.00  ok
+        #5    Portmap → Portmap  0.01 0.01 0.00 0.73 0.25 0.00  ok
+        #6    Portmap → Portmap  0.02 0.03 0.00 0.75 0.19 0.00  ok
+        #7     BENIGN → BENIGN   0.99 0.00 0.00 0.00 0.00 0.00  ok
+
+      QSVM α=0.05, C=100.0 | accuracy 89.25% | macro-F1 0.8934 | train 1.0s | infer 0.0s
+[4/6] Classical SVM (RBF) on the same PCA features...
+      {'C': 100.0, 'gamma': 'scale'} | accuracy 94.25% | macro-F1 0.9428
+
+      For comparison, classical RBF kernel exp(-γ‖zᵢ-zⱼ‖²), γ=0.125, same flows  shape 8×8, first 8×8 block (row/column label in brackets):
+                [MSSQL] [BENIGN] [Portma]  [MSSQL]    [Syn]   [LDAP]  [MSSQL]  [MSSQL]
+        [MSSQL]  1.0000   0.0307   0.4645   0.4778   0.3534   0.8517   0.8076   0.8776
+       [BENIGN]  0.0307   1.0000   0.0325   0.0814   0.0218   0.0199   0.0226   0.0281
+       [Portma]  0.4645   0.0325   1.0000   0.2764   0.2245   0.3944   0.4288   0.4289
+        [MSSQL]  0.4778   0.0814   0.2764   1.0000   0.2415   0.5291   0.4410   0.4708
+          [Syn]  0.3534   0.0218   0.2245   0.2415   1.0000   0.1922   0.2179   0.3120
+         [LDAP]  0.8517   0.0199   0.3944   0.5291   0.1922   1.0000   0.9281   0.6883
+        [MSSQL]  0.8076   0.0226   0.4288   0.4410   0.2179   0.9281   1.0000   0.5601
+        [MSSQL]  0.8776   0.0281   0.4289   0.4708   0.3120   0.6883   0.5601   1.0000
+      off-diagonal entries: mean 0.3716  std 0.2737  min 0.0199  max 0.9281  median 0.3739  | diagonal mean 1.0000
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     LDAP    MSSQL   Portma      Syn
+          BENIGN      nan   0.0199   0.0407   0.0325   0.0218
+            LDAP   0.0199      nan   0.7493   0.3944   0.1922
+           MSSQL   0.0407   0.7493   0.6058   0.3996   0.2812
+          Portma   0.0325   0.3944   0.3996      nan   0.2245
+             Syn   0.0218   0.1922   0.2812   0.2245      nan
+      eigenvalues: largest 4.11, 1.01, 0.93, 0.74, 0.63 | smallest 3.86e-02 | effective rank 3.2 of 8 | top-5 share 92.7%
+[6/6] Quantum kernel: off-diag mean 0.8689 ± 0.1050 | alignment 0.4398 | geometric difference g=3.42 (√N=20.0)
+      Plot: /home/aneesh/Desktop/qcnn/outputs/feature_maps/multiclass/zz_r2_a0.05/results_seed0.png
+
+[1/6] Loading ./output.csv (max=2,000, seed=1)...
+
+[2/6] Train: 1,598 | Test: 400 | test rows with an exact copy in train: 0.5%
+      Preprocessing: 49 features → PCA 8 (90.3% variance, fitted on train only)
+      Rotation angles θ = preprocessed training flows (first 8 of 1598 rows, one column per qubit, radians):
+       1.053  0.623  1.015  1.308  0.595  1.191  0.919  1.021
+       0.511  1.545  1.051  0.882  1.128  1.621  1.209  1.262
+       0.418  1.641  1.152  0.751  1.059  1.303  0.854  1.285
+       0.056  1.488  1.287  0.571  1.074  0.131  1.612  1.784
+       1.025  0.625  1.011  1.271  0.586  0.874  1.079  1.142
+       2.551  1.168  0.891  0.180  1.316  1.225  0.923  1.464
+       0.253  1.266  1.197  0.838  1.125  1.539  1.421  1.340
+       2.226  0.995  1.335  2.658  1.488  1.296  0.632  3.124
+
+[3/6] QSVM [zz, 8q, reps=2, linear] tuning α, C by 5-fold CV on train
+  Kernel 400×1598 computed in 0.02s [zz, backend=fast]
+      Selected α=0.05, C=100.0. Intermediate results:
+
+      Training kernel K_train[i,j] = |⟨φ(xᵢ)|φ(xⱼ)⟩|²  shape 1598×1598, first 8×8 block (row/column label in brackets):
+                  [UDP] [Portma] [Portma]  [MSSQL]    [UDP]    [Syn]   [LDAP] [BENIGN]
+          [UDP]  1.0000   0.9236   0.9441   0.8880   0.9942   0.8364   0.9226   0.6728
+       [Portma]  0.9236   1.0000   0.9798   0.8809   0.9049   0.8831   0.9891   0.7222
+       [Portma]  0.9441   0.9798   1.0000   0.9150   0.9323   0.8937   0.9609   0.6942
+        [MSSQL]  0.8880   0.8809   0.9150   1.0000   0.9154   0.7971   0.8934   0.6622
+          [UDP]  0.9942   0.9049   0.9323   0.9154   1.0000   0.8274   0.9087   0.6694
+          [Syn]  0.8364   0.8831   0.8937   0.7971   0.8274   1.0000   0.8328   0.6493
+         [LDAP]  0.9226   0.9891   0.9609   0.8934   0.9087   0.8328   1.0000   0.7044
+       [BENIGN]  0.6728   0.7222   0.6942   0.6622   0.6694   0.6493   0.7044   1.0000
+      off-diagonal entries: mean 0.8672  std 0.1021  min 0.2094  max 1.0000  median 0.8765  | diagonal mean 1.0000
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     LDAP    MSSQL   Portma      Syn      UDP
+          BENIGN   0.8447   0.7932   0.8059   0.8323   0.8134   0.7770
+            LDAP   0.7932   0.9613   0.9620   0.8534   0.8470   0.9347
+           MSSQL   0.8059   0.9620   0.9648   0.8657   0.8615   0.9343
+          Portma   0.8323   0.8534   0.8657   0.8653   0.8714   0.8294
+             Syn   0.8134   0.8470   0.8615   0.8714   0.9424   0.8421
+             UDP   0.7770   0.9347   0.9343   0.8294   0.8421   0.9932
+      eigenvalues: largest 1392.21, 80.44, 36.74, 23.17, 20.28 | smallest -6.86e-05 | effective rank 1.3 of 1598 | top-5 share 97.2%
+
+      Test kernel K_test[i,j] = |⟨φ(x_test,i)|φ(x_train,j)⟩|²  shape 400×1598, first 8×8 block (row/column label in brackets):
+                  [UDP] [Portma] [Portma]  [MSSQL]    [UDP]    [Syn]   [LDAP] [BENIGN]
+       [BENIGN]  0.7050   0.7515   0.7868   0.6511   0.6895   0.7538   0.6819   0.6796
+       [BENIGN]  0.8659   0.8963   0.8994   0.7700   0.8425   0.8328   0.8604   0.7859
+       [Portma]  0.7592   0.8308   0.8675   0.7763   0.7549   0.8618   0.7696   0.6514
+         [LDAP]  0.9435   0.9600   0.9880   0.8862   0.9252   0.8441   0.9486   0.6455
+        [MSSQL]  0.9234   0.9975   0.9756   0.8637   0.8999   0.8643   0.9894   0.7061
+       [Portma]  0.8565   0.9041   0.9202   0.8527   0.8555   0.9667   0.8577   0.6895
+          [UDP]  0.9991   0.9128   0.9363   0.8839   0.9947   0.8321   0.9128   0.6569
+          [UDP]  0.9993   0.9174   0.9441   0.8931   0.9957   0.8358   0.9153   0.6659
+      all entries: mean 0.8673  std 0.1004  min 0.2106  max 1.0000  median 0.8767
+      mean kernel value by class (row class × column class):
+                   BENIGN     LDAP    MSSQL   Portma      Syn      UDP
+          BENIGN   0.8383   0.7744   0.7869   0.8223   0.7981   0.7575
+            LDAP   0.7960   0.9620   0.9623   0.8558   0.8454   0.9326
+           MSSQL   0.8063   0.9622   0.9653   0.8665   0.8620   0.9355
+          Portma   0.8376   0.8754   0.8861   0.8741   0.8779   0.8519
+             Syn   0.8144   0.8469   0.8613   0.8710   0.9375   0.8424
+             UDP   0.7791   0.9366   0.9362   0.8316   0.8435   0.9921
+
+      SVM: 600 support vectors of 1598 training flows (BENIGN=81, LDAP=106, MSSQL=150, Portmap=174, Syn=76, UDP=13)
+      first 8 test flows: true → predicted (class probabilities)
+        #0     BENIGN → BENIGN   0.82 0.00 0.00 0.17 0.00 0.00  ok
+        #1     BENIGN → BENIGN   0.87 0.03 0.00 0.09 0.01 0.01  ok
+        #2    Portmap → Portmap  0.01 0.01 0.00 0.64 0.34 0.00  ok
+        #3       LDAP → LDAP     0.00 0.89 0.08 0.02 0.00 0.01  ok
+        #4      MSSQL → MSSQL    0.01 0.05 0.79 0.13 0.01 0.02  ok
+        #5    Portmap → Portmap  0.03 0.05 0.00 0.73 0.18 0.00  ok
+        #6        UDP → UDP      0.00 0.01 0.00 0.00 0.00 0.98  ok
+        #7        UDP → UDP      0.00 0.01 0.00 0.00 0.00 0.98  ok
+
+      QSVM α=0.05, C=100.0 | accuracy 88.25% | macro-F1 0.8823 | train 1.2s | infer 0.0s
+[4/6] Classical SVM (RBF) on the same PCA features...
+      {'C': 100.0, 'gamma': 1.0} | accuracy 92.25% | macro-F1 0.9231
+
+      For comparison, classical RBF kernel exp(-γ‖zᵢ-zⱼ‖²), γ=1, same flows  shape 8×8, first 8×8 block (row/column label in brackets):
+                  [UDP] [Portma] [Portma]  [MSSQL]    [UDP]    [Syn]   [LDAP] [BENIGN]
+          [UDP]  1.0000   0.0001   0.0007   0.0000   0.2256   0.0000   0.0000   0.0000
+       [Portma]  0.0001   1.0000   0.0681   0.0000   0.0000   0.0000   0.3505   0.0000
+       [Portma]  0.0007   0.0681   1.0000   0.0000   0.0001   0.0000   0.0100   0.0000
+        [MSSQL]  0.0000   0.0000   0.0000   1.0000   0.0000   0.0000   0.0000   0.0000
+          [UDP]  0.2256   0.0000   0.0001   0.0000   1.0000   0.0000   0.0000   0.0000
+          [Syn]  0.0000   0.0000   0.0000   0.0000   0.0000   1.0000   0.0000   0.0000
+         [LDAP]  0.0000   0.3505   0.0100   0.0000   0.0000   0.0000   1.0000   0.0000
+       [BENIGN]  0.0000   0.0000   0.0000   0.0000   0.0000   0.0000   0.0000   1.0000
+      off-diagonal entries: mean 0.0234  std 0.0763  min 0.0000  max 0.3505  median 0.0000  | diagonal mean 1.0000
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     LDAP    MSSQL   Portma      Syn      UDP
+          BENIGN      nan   0.0000   0.0000   0.0000   0.0000   0.0000
+            LDAP   0.0000      nan   0.0000   0.1802   0.0000   0.0000
+           MSSQL   0.0000   0.0000      nan   0.0000   0.0000   0.0000
+          Portma   0.0000   0.1802   0.0000   0.0681   0.0000   0.0002
+             Syn   0.0000   0.0000   0.0000   0.0000      nan   0.0000
+             UDP   0.0000   0.0000   0.0000   0.0002   0.0000   0.2256
+      eigenvalues: largest 1.36, 1.23, 1.00, 1.00, 1.00 | smallest 6.45e-01 | effective rank 7.7 of 8 | top-5 share 69.8%
+[6/6] Quantum kernel: off-diag mean 0.8672 ± 0.1021 | alignment 0.4499 | geometric difference g=6.38 (√N=20.0)
+
+[1/6] Loading ./output.csv (max=2,000, seed=2)...
+
+[2/6] Train: 1,598 | Test: 400 | test rows with an exact copy in train: 0.8%
+      Preprocessing: 49 features → PCA 8 (90.8% variance, fitted on train only)
+      Rotation angles θ = preprocessed training flows (first 8 of 1598 rows, one column per qubit, radians):
+       1.665  2.573  1.482  0.681  0.343  0.681  0.890  1.301
+       2.646  1.198  0.908  0.122  0.848  0.872  1.044  1.298
+       2.646  1.196  0.890  0.063  0.892  0.885  1.028  1.281
+       0.461  1.077  1.139  0.807  0.649  0.933  0.991  1.222
+       2.915  0.444  2.071  0.556  1.116  1.091  1.203  0.639
+       0.433  1.491  1.079  0.876  0.859  1.369  1.305  1.325
+       2.647  1.185  0.899  0.047  0.903  0.873  1.035  1.275
+       1.649  1.993  1.828  1.267  0.189  1.059  1.170  1.395
+
+[3/6] QSVM [zz, 8q, reps=2, linear] tuning α, C by 5-fold CV on train
+  Kernel 400×1598 computed in 0.03s [zz, backend=fast]
+      Selected α=0.05, C=100.0. Intermediate results:
+
+      Training kernel K_train[i,j] = |⟨φ(xᵢ)|φ(xⱼ)⟩|²  shape 1598×1598, first 8×8 block (row/column label in brackets):
+                  [Syn]    [Syn]    [Syn]   [LDAP] [BENIGN]    [UDP]    [Syn] [BENIGN]
+          [Syn]  1.0000   0.8442   0.8366   0.7543   0.8414   0.7535   0.8358   0.9369
+          [Syn]  0.8442   1.0000   0.9997   0.8428   0.8820   0.8398   0.9997   0.8047
+          [Syn]  0.8366   0.9997   1.0000   0.8390   0.8767   0.8362   1.0000   0.7946
+         [LDAP]  0.7543   0.8428   0.8390   1.0000   0.8692   0.9594   0.8395   0.8103
+       [BENIGN]  0.8414   0.8820   0.8767   0.8692   1.0000   0.9013   0.8760   0.9054
+          [UDP]  0.7535   0.8398   0.8362   0.9594   0.9013   1.0000   0.8361   0.8399
+          [Syn]  0.8358   0.9997   1.0000   0.8395   0.8760   0.8361   1.0000   0.7936
+       [BENIGN]  0.9369   0.8047   0.7946   0.8103   0.9054   0.8399   0.7936   1.0000
+      off-diagonal entries: mean 0.8704  std 0.1034  min 0.2285  max 1.0000  median 0.8772  | diagonal mean 1.0000
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     LDAP    MSSQL   Portma      Syn      UDP
+          BENIGN   0.8570   0.7881   0.8009   0.8322   0.8008   0.7972
+            LDAP   0.7881   0.9643   0.9682   0.8634   0.8442   0.9377
+           MSSQL   0.8009   0.9682   0.9738   0.8762   0.8593   0.9415
+          Portma   0.8322   0.8634   0.8762   0.8695   0.8703   0.8487
+             Syn   0.8008   0.8442   0.8593   0.8703   0.9522   0.8345
+             UDP   0.7972   0.9377   0.9415   0.8487   0.8345   0.9934
+      eigenvalues: largest 1397.69, 77.39, 41.61, 24.63, 16.48 | smallest -6.70e-05 | effective rank 1.3 of 1598 | top-5 share 97.5%
+
+      Test kernel K_test[i,j] = |⟨φ(x_test,i)|φ(x_train,j)⟩|²  shape 400×1598, first 8×8 block (row/column label in brackets):
+                  [Syn]    [Syn]    [Syn]   [LDAP] [BENIGN]    [UDP]    [Syn] [BENIGN]
+          [UDP]  0.7211   0.8054   0.7996   0.9673   0.8847   0.9258   0.7997   0.8066
+          [Syn]  0.8422   0.9998   0.9999   0.8392   0.8793   0.8369   0.9999   0.8000
+       [Portma]  0.7457   0.8350   0.8309   0.9377   0.8945   0.9958   0.8307   0.8401
+       [Portma]  0.9911   0.8764   0.8689   0.8120   0.8891   0.8203   0.8682   0.9604
+       [BENIGN]  0.8806   0.8922   0.8873   0.8439   0.9352   0.8736   0.8864   0.8968
+          [UDP]  0.7396   0.8177   0.8117   0.9719   0.8922   0.9324   0.8117   0.8220
+         [LDAP]  0.7264   0.8159   0.8122   0.9642   0.8806   0.9975   0.8122   0.8202
+       [BENIGN]  0.4829   0.5040   0.4988   0.5850   0.6214   0.6222   0.4984   0.5911
+      all entries: mean 0.8686  std 0.1072  min 0.2180  max 1.0000  median 0.8777
+      mean kernel value by class (row class × column class):
+                   BENIGN     LDAP    MSSQL   Portma      Syn      UDP
+          BENIGN   0.8463   0.7745   0.7871   0.8172   0.7818   0.7849
+            LDAP   0.7943   0.9653   0.9694   0.8691   0.8525   0.9386
+           MSSQL   0.8010   0.9682   0.9738   0.8758   0.8583   0.9412
+          Portma   0.8311   0.8638   0.8758   0.8662   0.8621   0.8476
+             Syn   0.8005   0.8454   0.8602   0.8704   0.9544   0.8383
+             UDP   0.7971   0.9380   0.9417   0.8488   0.8350   0.9940
+
+      SVM: 607 support vectors of 1598 training flows (BENIGN=68, LDAP=106, MSSQL=166, Portmap=184, Syn=66, UDP=17)
+      first 8 test flows: true → predicted (class probabilities)
+        #0        UDP → UDP      0.01 0.01 0.00 0.00 0.00 0.99  ok
+        #1        Syn → Syn      0.00 0.00 0.00 0.01 0.99 0.00  ok
+        #2    Portmap → Portmap  0.02 0.03 0.34 0.54 0.01 0.06  ok
+        #3    Portmap → Portmap  0.01 0.02 0.00 0.75 0.21 0.00  ok
+        #4     BENIGN → BENIGN   0.87 0.01 0.00 0.12 0.00 0.00  ok
+        #5        UDP → UDP      0.01 0.01 0.00 0.00 0.00 0.98  ok
+        #6       LDAP → LDAP     0.00 0.58 0.32 0.05 0.00 0.04  ok
+        #7     BENIGN → BENIGN   0.98 0.00 0.00 0.01 0.00 0.00  ok
+
+      QSVM α=0.05, C=100.0 | accuracy 90.00% | macro-F1 0.8998 | train 0.8s | infer 0.0s
+[4/6] Classical SVM (RBF) on the same PCA features...
+      {'C': 100.0, 'gamma': 0.3} | accuracy 90.75% | macro-F1 0.9083
+
+      For comparison, classical RBF kernel exp(-γ‖zᵢ-zⱼ‖²), γ=0.3, same flows  shape 8×8, first 8×8 block (row/column label in brackets):
+                  [Syn]    [Syn]    [Syn]   [LDAP] [BENIGN]    [UDP]    [Syn] [BENIGN]
+          [Syn]  1.0000   0.0167   0.0133   0.0281   0.0001   0.0062   0.0125   0.1520
+          [Syn]  0.0167   1.0000   0.9882   0.0650   0.0085   0.0197   0.9840   0.0047
+          [Syn]  0.0133   0.9882   1.0000   0.0560   0.0082   0.0172   0.9984   0.0032
+         [LDAP]  0.0281   0.0650   0.0560   1.0000   0.0023   0.2490   0.0539   0.0383
+       [BENIGN]  0.0001   0.0085   0.0082   0.0023   1.0000   0.0008   0.0087   0.0006
+          [UDP]  0.0062   0.0197   0.0172   0.2490   0.0008   1.0000   0.0162   0.0316
+          [Syn]  0.0125   0.9840   0.9984   0.0539   0.0087   0.0162   1.0000   0.0030
+       [BENIGN]  0.1520   0.0047   0.0032   0.0383   0.0006   0.0316   0.0030   1.0000
+      off-diagonal entries: mean 0.1352  std 0.3006  min 0.0001  max 0.9984  median 0.0165  | diagonal mean 1.0000
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     LDAP      Syn      UDP
+          BENIGN   0.0006   0.0203   0.0235   0.0162
+            LDAP   0.0203      nan   0.0508   0.2490
+             Syn   0.0235   0.0508   0.5022   0.0148
+             UDP   0.0162   0.2490   0.0148      nan
+      eigenvalues: largest 2.99, 1.27, 1.13, 1.00, 0.85 | smallest 1.23e-03 | effective rank 4.5 of 8 | top-5 share 90.4%
+[6/6] Quantum kernel: off-diag mean 0.8704 ± 0.1034 | alignment 0.4781 | geometric difference g=4.38 (√N=20.0)
+
+========================================================================
+  RESULTS SUMMARY  (multiclass, 3 seed(s): [0, 1, 2])
+========================================================================
+  Method                  Accuracy        Macro-F1             AUC    FalseAlarm
+  QSVM (zz)           89.17 ± 0.72    89.18 ± 0.72    97.37 ± 0.24   3.48 ± 1.86
+  RBF-SVM             92.42 ± 1.43    92.47 ± 1.41    98.75 ± 0.30   1.99 ± 1.86
+
+  McNemar p-value (QSVM vs RBF) per seed: 0.00018, 0.00249, 0.678
+  Saved: /home/aneesh/Desktop/qcnn/outputs/feature_maps/multiclass/zz_r2_a0.05/results.json
+========================================================================

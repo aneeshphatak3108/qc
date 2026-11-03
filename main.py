@@ -9,7 +9,10 @@ Usage (original flags still work):
   python main.py --csv ./output.csv --samples 500  --mode multiclass
 
 New options (see TESTING.md for the full list of tested commands):
-  --kernel zz|rx               ZZ entangling map or the paper's separable Rx map
+  --kernel zz|rx|pauli         ZZ entangling map, the paper's separable Rx map, or a
+                               general Pauli feature map (--paulis Y ZZ, --paulis Z XX ...)
+  --data-map havlicek|product|cosine|exp
+                               φ for the multi-qubit terms of zz / pauli maps
   --entanglement linear|circular|full
   --alpha A --C C --no-tune    fixed hyperparameters instead of CV tuning
   --seeds 0 1 2 3 4            repeat with different samples/splits, report mean ± std
@@ -17,6 +20,14 @@ New options (see TESTING.md for the full list of tested commands):
                                duplicates kept, α=1, C=1, untuned RBF) for comparison
   --backend cirq               use the Cirq simulator instead of the fast engine
   --psd                        with --sampling: PSD-project the shot-noise train kernel
+  --show N                     size of the kernel excerpts printed (0 = none)
+  --no-save-kernels            do not write kernels_seed<seed>.npz (K_train, K_test, angles)
+
+Besides the metrics, every run prints its intermediate results: the rotation
+angles, excerpts and statistics of the training and test kernel matrices, the
+class-by-class mean similarity, the kernel spectrum, the support vectors and
+the SVM decision values. The full matrices are saved to
+<out-dir>/kernels_seed<seed>.npz.
 """
 
 import argparse
@@ -49,6 +60,76 @@ from qsvm import QSVM, QuantumKernel
 DEFAULT_ALPHAS = [0.05, 0.1, 0.2, 0.4, 1.0]
 DEFAULT_CS = [0.1, 1.0, 10.0, 100.0]
 RBF_GAMMAS = ["scale", 0.01, 0.03, 0.1, 0.3, 1.0]
+
+
+def _fmt_block(M, fmt="{:6.3f}", width=8):
+    return "\n".join("      " + " ".join(fmt.format(v).rjust(width) for v in row) for row in M)
+
+
+def print_angles(A, n, title):
+    if not n:
+        return
+    k = min(n, len(A))
+    print(f"      {title} (first {k} of {len(A)} rows, one column per qubit, radians):")
+    print(_fmt_block(A[:k], "{:.3f}", 6))
+
+
+def print_kernel(K, rows, cols, name, n, target_names):
+    """Excerpt + statistics of a kernel matrix. rows/cols are the labels."""
+    if not n:
+        return
+    r, c = min(n, K.shape[0]), min(n, K.shape[1])
+    print(f"\n      {name}  shape {K.shape[0]}×{K.shape[1]}, first {r}×{c} block "
+          f"(row/column label in brackets):")
+    lab = lambda v: target_names[v][:6]
+    print("      " + " " * 9 + " ".join(f"[{lab(v)}]".rjust(8) for v in cols[:c]))
+    for i in range(r):
+        print(f"      {'[' + lab(rows[i]) + ']':>9}" +
+              " ".join(f"{v:8.4f}" for v in K[i, :c]))
+    sym = K.shape[0] == K.shape[1] and np.allclose(K, K.T)
+    off = K[~np.eye(*K.shape, dtype=bool)] if sym else K.ravel()
+    print(f"      {'off-diagonal' if sym else 'all'} entries: mean {off.mean():.4f}  "
+          f"std {off.std():.4f}  min {off.min():.4f}  max {off.max():.4f}  "
+          f"median {np.median(off):.4f}" + (f"  | diagonal mean {np.diag(K).mean():.4f}"
+                                            if sym else ""))
+    # mean similarity between classes: entry (a, b) = mean K[i, j], y_i = a, y_j = b
+    classes = np.unique(np.concatenate([rows, cols]))
+    print("      mean kernel value by class (row class × column class"
+          + (", diagonal excluded):" if sym else "):"))
+    print("      " + " " * 10 + "".join(f"{lab(b):>9}" for b in classes))
+    for a in classes:
+        vals = []
+        for b in classes:
+            blk = K[np.ix_(rows == a, cols == b)]
+            if sym and a == b:
+                m = len(blk)
+                vals.append((blk.sum() - np.trace(blk)) / (m * (m - 1)) if m > 1 else np.nan)
+            else:
+                vals.append(blk.mean() if blk.size else np.nan)
+        print(f"      {lab(a):>10}" + "".join(f"{v:9.4f}" for v in vals))
+    if sym:
+        w = np.linalg.eigvalsh(K)[::-1]
+        eff = (w.sum() ** 2) / np.sum(w ** 2)
+        print(f"      eigenvalues: largest {', '.join(f'{v:.2f}' for v in w[:5])} | "
+              f"smallest {w[-1]:.2e} | effective rank {eff:.1f} of {len(w)} | "
+              f"top-5 share {w[:5].sum() / w.sum() * 100:.1f}%")
+
+
+def print_svm(svc, y_train, scores, y_test, y_pred, n, target_names, binary):
+    if not n:
+        return
+    per = ", ".join(f"{target_names[c]}={k}" for c, k in zip(svc.classes_, svc.n_support_))
+    print(f"\n      SVM: {len(svc.support_)} support vectors of {len(y_train)} "
+          f"training flows ({per})")
+    k = min(n, len(y_test))
+    print(f"      first {k} test flows: true → predicted"
+          + (" (decision value; > 0 means DDoS)" if binary else " (class probabilities)"))
+    for i in range(k):
+        sc = (f"{scores[i]:+8.4f}" if binary
+              else " ".join(f"{v:.2f}" for v in scores[i]))
+        mark = "ok" if y_pred[i] == y_test[i] else "WRONG"
+        print(f"        #{i:<3d} {target_names[y_test[i]]:>8} → {target_names[y_pred[i]]:<8} "
+              f"{sc}  {mark}")
 
 
 def _scores(model, X, binary):
@@ -91,15 +172,17 @@ def run_once(args, seed: int, verbose: bool = True) -> dict:
     print(f"      Preprocessing: {prep.n_input_features} features → PCA {args.n_qubits} "
           f"({prep.explained_variance*100:.1f}% variance, fitted on train only)")
     res["pca_variance"] = prep.explained_variance
+    print_angles(A_train, args.show, "Rotation angles θ = preprocessed training flows")
 
     # ── 3. QSVM ───────────────────────────────────────────────────────────────
     def make_kernel(alpha):
         return QuantumKernel(args.n_qubits, args.n_reps, args.shots, args.sampling,
                              args.kernel, args.entanglement, alpha, args.backend, seed,
-                             psd_project=args.psd)
+                             psd_project=args.psd, paulis=args.paulis,
+                             data_map=args.data_map)
 
     tune = not args.no_tune
-    print(f"\n[3/6] QSVM [{args.kernel}, {args.n_qubits}q, reps={args.n_reps}, "
+    print(f"\n[3/6] QSVM [{feature_map_label(args)}, {args.n_qubits}q, reps={args.n_reps}, "
           f"{args.entanglement}] {'tuning α, C by 5-fold CV on train' if tune else ''}")
     t0 = time.time()
     if tune:
@@ -113,7 +196,7 @@ def run_once(args, seed: int, verbose: bool = True) -> dict:
 
     qsvm = QSVM(args.n_qubits, args.n_reps, C, args.shots, args.sampling, args.kernel,
                 args.entanglement, alpha, args.backend, preprocessor=prep, seed=seed,
-                psd_project=args.psd)
+                psd_project=args.psd, paulis=args.paulis, data_map=args.data_map)
     t0 = time.time()
     qsvm.fit(X_train, y_train, K_train=K_train)
     t_q_train = time.time() - t0 + t_tune
@@ -124,7 +207,29 @@ def run_once(args, seed: int, verbose: bool = True) -> dict:
     m_q = classification_metrics(y_test, y_pred_q, s_q, benign)
     m_q.update({"alpha": alpha, "C": C, "train_s": t_q_train, "infer_s": t_q_infer})
     res["qsvm"] = m_q
-    print(f"      α={alpha}, C={C} | accuracy {m_q['accuracy']*100:.2f}% | "
+    K_test = qsvm.test_kernel(X_test)
+    print(f"      Selected α={alpha}, C={C}. Intermediate results:")
+    print_kernel(qsvm.K_train_, y_train, y_train,
+                 "Training kernel K_train[i,j] = |⟨φ(xᵢ)|φ(xⱼ)⟩|²", args.show, target_names)
+    print_kernel(K_test, y_test, y_train,
+                 "Test kernel K_test[i,j] = |⟨φ(x_test,i)|φ(x_train,j)⟩|²", args.show,
+                 target_names)
+    print_svm(qsvm.svc, y_train, s_q, y_test, y_pred_q, args.show, target_names, binary)
+    res["quantum_kernel_stats"] = {
+        "train_offdiag_mean": float((qsvm.K_train_.sum() - np.trace(qsvm.K_train_))
+                                    / (len(y_train) * (len(y_train) - 1))),
+        "test_mean": float(K_test.mean()),
+        "n_support": int(len(qsvm.svc.support_)),
+    }
+    if not args.no_save_kernels:
+        path = Path(args.out_dir_resolved) / f"kernels_seed{seed}.npz"
+        np.savez_compressed(path, K_train=qsvm.K_train_.astype(np.float32),
+                            K_test=K_test.astype(np.float32), y_train=y_train, y_test=y_test,
+                            A_train=A_train.astype(np.float32),
+                            A_test=prep.transform(X_test).astype(np.float32),
+                            alpha=alpha, C=C, target_names=np.array(target_names))
+        print(f"      Full kernel matrices saved: {path}")
+    print(f"\n      QSVM α={alpha}, C={C} | accuracy {m_q['accuracy']*100:.2f}% | "
           f"macro-F1 {m_q['macro_f1']:.4f} | train {t_q_train:.1f}s | infer {t_q_infer:.1f}s")
     if verbose:
         print(classification_report(y_test, y_pred_q, target_names=target_names, digits=4))
@@ -169,6 +274,11 @@ def run_once(args, seed: int, verbose: bool = True) -> dict:
         "rbf": kernel_diagnostics(rbf_kernel_matrix(Z_train, gamma), y_train),
     }
     kd = res["kernel_diagnostics"]["quantum"]
+    if args.show:
+        k = min(args.show, len(Z_train))
+        print_kernel(rbf_kernel_matrix(Z_train[:k], gamma), y_train[:k], y_train[:k],
+                     f"For comparison, classical RBF kernel exp(-γ‖zᵢ-zⱼ‖²), γ={gamma:.4g}, "
+                     f"same flows", k, target_names)
     print(f"[6/6] Quantum kernel: off-diag mean {kd['offdiag_mean']:.4f} ± {kd['offdiag_std']:.4f}"
           f" | alignment {kd['alignment']:.4f} | geometric difference g={kd['geometric_difference']:.2f}"
           f" (√N={np.sqrt(kd['geometric_difference_n']):.1f})")
@@ -178,13 +288,23 @@ def run_once(args, seed: int, verbose: bool = True) -> dict:
     return res
 
 
+def feature_map_label(args) -> str:
+    if args.kernel == "pauli":
+        name = "pauli[" + ",".join(args.paulis) + "]"
+    else:
+        name = args.kernel
+    if args.kernel != "rx" and args.data_map != "havlicek":
+        name += f",φ={args.data_map}"
+    return name
+
+
 def plot_run(res, args, out_dir: Path):
     p = res["_plot"]
     binary = args.mode == "binary"
     names = p["target_names"]
     n = len(names)
     fig, axes = plt.subplots(2, 3, figsize=(20, 11))
-    fig.suptitle(f"Quantum Network Defense — {args.kernel.upper()} kernel "
+    fig.suptitle(f"Quantum Network Defense — {feature_map_label(args)} kernel "
                  f"({args.mode}, {args.n_qubits} qubits, seed {res['seed']})",
                  fontsize=14, fontweight="bold")
 
@@ -283,7 +403,12 @@ def main(argv=None):
                              "finite-shot training kernel")
     parser.add_argument("--n-qubits", type=int, default=16)
     parser.add_argument("--n-reps", type=int, default=2)
-    parser.add_argument("--kernel", default="zz", choices=["zz", "rx"])
+    parser.add_argument("--kernel", default="zz", choices=["zz", "rx", "pauli"])
+    parser.add_argument("--paulis", nargs="+", default=["Z", "ZZ"],
+                        help="Pauli strings of the --kernel pauli map, e.g. Y ZZ")
+    parser.add_argument("--data-map", default="havlicek",
+                        choices=["havlicek", "product", "cosine", "exp"],
+                        help="φ_S(x) of multi-qubit terms (zz and pauli maps)")
     parser.add_argument("--entanglement", default="linear",
                         choices=["linear", "circular", "full"])
     parser.add_argument("--backend", default="fast", choices=["fast", "cirq"])
@@ -306,19 +431,24 @@ def main(argv=None):
                              "--keep-duplicates --no-tune --alpha 1 --C 1")
     parser.add_argument("--out-dir", default=None)
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--show", type=int, default=8,
+                        help="rows/columns of the kernel excerpts to print (0 = none)")
+    parser.add_argument("--no-save-kernels", action="store_true")
     args = parser.parse_args(argv)
     if args.legacy:
         args.legacy_scaling = args.keep_duplicates = args.no_tune = True
         args.alpha, args.C = 1.0, 1.0
 
-    tag = (f"{args.mode}_{args.kernel}_{args.n_qubits}q"
+    kname = args.kernel if args.kernel != "pauli" else "pauli_" + "-".join(args.paulis)
+    tag = (f"{args.mode}_{kname}_{args.n_qubits}q"
            f"{'_legacy' if args.legacy else ''}{'_shots' if args.sampling else ''}")
     out_dir = Path(args.out_dir or os.path.join("outputs", tag))
     out_dir.mkdir(parents=True, exist_ok=True)
+    args.out_dir_resolved = str(out_dir)
 
     print("=" * 72)
     print("  QUANTUM NETWORK DEFENSE — CIC-DDoS2019 Pipeline")
-    print(f"  Kernel: {args.kernel} | protocol: {'LEGACY (original)' if args.legacy else 'improved'}")
+    print(f"  Kernel: {feature_map_label(args)} | protocol: {'LEGACY (original)' if args.legacy else 'improved'}")
     print("=" * 72)
 
     runs = []

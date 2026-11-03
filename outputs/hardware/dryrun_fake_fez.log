@@ -1,0 +1,88 @@
+====================================================================================================
+  QSVM ON IBM QUANTUM HARDWARE — ZZ map, 8 qubits, reps=2, linear
+====================================================================================================
+  Data: 1600 train / 400 test flows (binary, dedup), PCA 8 (89.6% variance, train only)
+  Hyperparameters (CV on the full training split): α=0.4, C=10.0
+  Reference, exact QSVM on the full 1600/400 split: accuracy 99.50%
+  2460 kernel circuits: 780 train pairs + 80 diagonal + 1600 test–train, 256 shots each
+  Transpiled 2460 circuits in 20s onto physical qubits [126, 125, 124, 123, 136, 143, 142, 141]
+  Backend fake_fez: depth 150 (max 155), 56 two-qubit gates per circuit, median cz error 2.93e-03, readout error 4.76e-03
+  Rough QPU-time estimate: 2.6 min (circuits × shots × 250 µs repetition delay)
+  Noisy simulation (fake_fez noise model) of 2460 circuits in 529s
+
+  Intermediate results: kernel excerpts (first 6 training flows) from each source
+
+      [Exact (statevector)] K_train  shape 6×6, first 6×6 block (row/column label in brackets):
+                 [DDoS]   [DDoS] [BENIGN] [BENIGN] [BENIGN] [BENIGN]
+         [DDoS]  1.0000   0.0377   0.0004   0.1212   0.0074   0.0159
+         [DDoS]  0.0377   1.0000   0.0012   0.2147   0.0031   0.0103
+       [BENIGN]  0.0004   0.0012   1.0000   0.0313   0.0002   0.0036
+       [BENIGN]  0.1212   0.2147   0.0313   1.0000   0.0027   0.0052
+       [BENIGN]  0.0074   0.0031   0.0002   0.0027   1.0000   0.3009
+       [BENIGN]  0.0159   0.0103   0.0036   0.0052   0.3009   1.0000
+      off-diagonal entries: mean 0.0504  std 0.0880  min 0.0002  max 0.3009  median 0.0074  | diagonal mean 1.0000
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     DDoS
+          BENIGN   0.0573   0.0468
+            DDoS   0.0468   0.0377
+      eigenvalues: largest 1.31, 1.26, 1.00, 0.97, 0.77 | smallest 6.99e-01 | effective rank 5.7 of 6 | top-5 share 88.4%
+
+      [Ideal + shot noise] K_train  shape 6×6, first 6×6 block (row/column label in brackets):
+                 [DDoS]   [DDoS] [BENIGN] [BENIGN] [BENIGN] [BENIGN]
+         [DDoS]  1.0000   0.0352   0.0000   0.1367   0.0195   0.0195
+         [DDoS]  0.0352   1.0000   0.0039   0.1758   0.0000   0.0039
+       [BENIGN]  0.0000   0.0039   1.0000   0.0391   0.0000   0.0039
+       [BENIGN]  0.1367   0.1758   0.0391   1.0000   0.0000   0.0117
+       [BENIGN]  0.0195   0.0000   0.0000   0.0000   1.0000   0.2812
+       [BENIGN]  0.0195   0.0039   0.0039   0.0117   0.2812   1.0000
+      off-diagonal entries: mean 0.0487  std 0.0803  min 0.0000  max 0.2812  median 0.0117  | diagonal mean 1.0000
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     DDoS
+          BENIGN   0.0560   0.0449
+            DDoS   0.0449   0.0352
+      eigenvalues: largest 1.29, 1.24, 1.00, 0.96, 0.79 | smallest 7.18e-01 | effective rank 5.7 of 6 | top-5 share 88.0%
+
+      [Noisy simulator] K_train  shape 6×6, first 6×6 block (row/column label in brackets):
+                 [DDoS]   [DDoS] [BENIGN] [BENIGN] [BENIGN] [BENIGN]
+         [DDoS]  0.8086   0.0352   0.0039   0.0938   0.0039   0.0156
+         [DDoS]  0.0352   0.8008   0.0000   0.2070   0.0039   0.0039
+       [BENIGN]  0.0039   0.0000   0.7773   0.0039   0.0000   0.0078
+       [BENIGN]  0.0938   0.2070   0.0039   0.7773   0.0039   0.0078
+       [BENIGN]  0.0039   0.0039   0.0000   0.0039   0.7852   0.2500
+       [BENIGN]  0.0156   0.0039   0.0078   0.0078   0.2500   0.8125
+      off-diagonal entries: mean 0.0427  std 0.0768  min 0.0000  max 0.2500  median 0.0039  | diagonal mean 0.7936
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     DDoS
+          BENIGN   0.0456   0.0415
+            DDoS   0.0415   0.0352
+      eigenvalues: largest 1.06, 1.02, 0.78, 0.78, 0.57 | smallest 5.48e-01 | effective rank 5.7 of 6 | top-5 share 88.5%
+
+      [Noisy sim, mitigated] K_train  shape 6×6, first 6×6 block (row/column label in brackets):
+                 [DDoS]   [DDoS] [BENIGN] [BENIGN] [BENIGN] [BENIGN]
+         [DDoS]  1.0018   0.0433   0.0049   0.1197   0.0050   0.0195
+         [DDoS]  0.0433   1.0006  -0.0001   0.2596   0.0049   0.0047
+       [BENIGN]  0.0049  -0.0001   1.0000   0.0058   0.0000   0.0098
+       [BENIGN]  0.1197   0.2596   0.0058   1.0185   0.0051   0.0101
+       [BENIGN]  0.0050   0.0049   0.0000   0.0051   1.0000   0.3130
+       [BENIGN]  0.0195   0.0047   0.0098   0.0101   0.3130   1.0001
+      off-diagonal entries: mean 0.0537  std 0.0963  min -0.0001  max 0.3130  median 0.0058  | diagonal mean 1.0035
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     DDoS
+          BENIGN   0.0573   0.0523
+            DDoS   0.0523   0.0433
+      eigenvalues: largest 1.33, 1.30, 1.00, 0.97, 0.74 | smallest 6.87e-01 | effective rank 5.7 of 6 | top-5 share 88.6%
+
+      [Noisy simulator] measured diagonal K(x,x) (ideal 1): mean 0.7729, min 0.7109, max 0.8203
+
+====================================================================================================
+  COMPARISON — 40 train / 40 test flows, α=0.4, C=10.0
+====================================================================================================
+  Exact (statevector)          97.5  0.975  0.997    100%  0.0000   0.000  1.000   1.000   0.082  0.336 -4.73e-08
+  Ideal + shot noise           97.5  0.975  1.000    100%  0.0062   0.054  0.999   1.000   0.081  0.337 -5.02e-02
+  Noisy simulator              97.5  0.975  0.997    100%  0.0218   0.285  0.998   0.777   0.066  0.333 -9.09e-02
+  Noisy sim, mitigated         97.5  0.975  0.995    100%  0.0085   0.115  0.998   1.007   0.085  0.333 -3.77e-16
+  Classical RBF-SVM            92.5  0.925  1.000       —       —       —      —       —       —      —         —
+  MAE = mean |K − K_exact| over test–train entries; r = Pearson correlation with the exact kernel;
+  K(x,x) = mean measured diagonal (ideal 1); =exact = test predictions identical to the exact QSVM.
+
+  Saved: outputs/hardware/dryrun_fake_fez/results.json, outputs/hardware/dryrun_fake_fez/kernels.npz, outputs/hardware/dryrun_fake_fez/hardware_comparison.png

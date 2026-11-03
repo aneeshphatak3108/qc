@@ -1,0 +1,194 @@
+{
+  "args": {
+    "csv": "/home/aneesh/Desktop/qcnn/output.csv",
+    "samples": 2000,
+    "seed": 42,
+    "n_qubits": 8,
+    "reps": 2,
+    "entanglement": "linear",
+    "n_train": 40,
+    "n_test": 40,
+    "shots": 256,
+    "alpha": null,
+    "C": null,
+    "backend": null,
+    "fake_backend": "fez",
+    "channel": "ibm_quantum_platform",
+    "instance": null,
+    "dry_run": true,
+    "job_id": null,
+    "twirl": false,
+    "max_seconds": 600,
+    "show": 6,
+    "out_dir": "outputs/hardware/dryrun_fake_fez"
+  },
+  "backend": "fake_fez",
+  "real_hardware": false,
+  "hardware_job": null,
+  "alpha": 0.4,
+  "C": 10.0,
+  "n_train": 40,
+  "n_test": 40,
+  "n_circuits": 2460,
+  "full_split_exact_accuracy": 0.995,
+  "circuits": {
+    "depth_mean": 149.57032520325203,
+    "depth_max": 155,
+    "two_qubit_gates_mean": 56.0,
+    "two_qubit_gates_max": 56,
+    "physical_qubits": [
+      126,
+      125,
+      124,
+      123,
+      136,
+      143,
+      142,
+      141
+    ],
+    "two_qubit_gate": "cz",
+    "median_2q_error_on_layout": 0.002930918251921266,
+    "median_readout_error_on_layout": 0.0047607421875
+  },
+  "results": {
+    "exact": {
+      "accuracy": 0.975,
+      "macro_f1": 0.9749843652282677,
+      "auc": 0.9974999999999999,
+      "false_alarm_rate": 0.05,
+      "detection_rate": 1.0,
+      "confusion_matrix": [
+        [
+          19,
+          1
+        ],
+        [
+          0,
+          20
+        ]
+      ],
+      "agreement_with_exact_predictions": 1.0,
+      "n_support": 28,
+      "mae_train": 0.0,
+      "mae_test": 0.0,
+      "max_abs_err": 0.0,
+      "rel_frobenius_err": 0.0,
+      "pearson_r": 1.0,
+      "diag_mean_train": 1.0,
+      "diag_mean_test": 1.0,
+      "offdiag_mean": 0.08219500884954065,
+      "alignment": 0.33642636050935204,
+      "min_eigenvalue": -4.732253028667617e-08
+    },
+    "shots": {
+      "accuracy": 0.975,
+      "macro_f1": 0.9749843652282677,
+      "auc": 1.0,
+      "false_alarm_rate": 0.05,
+      "detection_rate": 1.0,
+      "confusion_matrix": [
+        [
+          19,
+          1
+        ],
+        [
+          0,
+          20
+        ]
+      ],
+      "agreement_with_exact_predictions": 1.0,
+      "n_support": 29,
+      "mae_train": 0.006029844946356906,
+      "mae_test": 0.006181847878308844,
+      "max_abs_err": 0.053524136543273926,
+      "rel_frobenius_err": 0.040603642927397376,
+      "pearson_r": 0.9990583632754025,
+      "diag_mean_train": 1.0,
+      "diag_mean_test": 1.0,
+      "offdiag_mean": 0.08147035256410257,
+      "alignment": 0.3374378989467497,
+      "min_eigenvalue": -0.05023342968935238
+    },
+    "noisy_sim": {
+      "accuracy": 0.975,
+      "macro_f1": 0.9749843652282677,
+      "auc": 0.9974999999999999,
+      "false_alarm_rate": 0.05,
+      "detection_rate": 1.0,
+      "confusion_matrix": [
+        [
+          19,
+          1
+        ],
+        [
+          0,
+          20
+        ]
+      ],
+      "agreement_with_exact_predictions": 1.0,
+      "n_support": 29,
+      "mae_train": 0.02003226215406066,
+      "mae_test": 0.021844310564041933,
+      "max_abs_err": 0.2847002148628235,
+      "rel_frobenius_err": 0.23307208443443106,
+      "pearson_r": 0.9978843444115166,
+      "diag_mean_train": 0.77724609375,
+      "diag_mean_test": 0.7685546875,
+      "offdiag_mean": 0.06577023237179487,
+      "alignment": 0.3333952966620055,
+      "min_eigenvalue": -0.09094367232524618
+    },
+    "noisy_sim_mitigated": {
+      "accuracy": 0.975,
+      "macro_f1": 0.9749843652282677,
+      "auc": 0.995,
+      "false_alarm_rate": 0.05,
+      "detection_rate": 1.0,
+      "confusion_matrix": [
+        [
+          19,
+          1
+        ],
+        [
+          0,
+          20
+        ]
+      ],
+      "agreement_with_exact_predictions": 1.0,
+      "n_support": 29,
+      "mae_train": 0.008957745383826264,
+      "mae_test": 0.008463112359282682,
+      "max_abs_err": 0.1151864153687916,
+      "rel_frobenius_err": 0.060486585660765806,
+      "pearson_r": 0.9979667377440363,
+      "diag_mean_train": 1.0067005919291947,
+      "diag_mean_test": 0.7685546875,
+      "offdiag_mean": 0.08451222514540035,
+      "alignment": 0.3332027603904235,
+      "min_eigenvalue": -3.771991021314583e-16
+    },
+    "rbf": {
+      "accuracy": 0.925,
+      "balanced_accuracy": 0.925,
+      "macro_f1": 0.9245757385292269,
+      "mcc": 0.8597269536210952,
+      "confusion_matrix": [
+        [
+          17,
+          3
+        ],
+        [
+          0,
+          20
+        ]
+      ],
+      "false_alarm_rate": 0.15,
+      "detection_rate": 1.0,
+      "auc": 1.0,
+      "params": {
+        "C": 10.0,
+        "gamma": 0.01
+      }
+    }
+  }
+}

@@ -1,0 +1,268 @@
+========================================================================
+  QUANTUM NETWORK DEFENSE — CIC-DDoS2019 Pipeline
+  Kernel: pauli[Y,ZZ] | protocol: improved
+========================================================================
+
+[1/6] Loading ./output.csv (max=2,000, seed=0)...
+
+[2/6] Train: 1,600 | Test: 400 | test rows with an exact copy in train: 0.0%
+      Preprocessing: 49 features → PCA 8 (89.9% variance, fitted on train only)
+      Rotation angles θ = preprocessed training flows (first 8 of 1600 rows, one column per qubit, radians):
+       0.599  0.764  2.078  2.914  2.752  0.781  1.601  0.508
+       2.569  0.531  2.201  2.588  2.235  1.173  1.921  0.645
+       0.074  1.089  1.606  1.240  0.024  2.722  3.127  0.137
+       2.541  1.411  0.905  1.044  0.250  0.785  1.527  0.456
+       0.390  1.141  1.691  1.365  0.673  0.288  0.735  0.424
+       2.549  1.802  0.433  1.393  0.339  1.487  1.806  0.413
+       0.069  1.078  1.612  1.237  0.022  2.723  3.126  0.137
+       2.327  0.627  2.820  1.464  0.884  1.118  0.731  0.434
+
+[3/6] QSVM [pauli[Y,ZZ], 8q, reps=2, linear] tuning α, C by 5-fold CV on train
+  Kernel 400×1600 computed in 0.22s [pauli, backend=fast]
+      Selected α=0.2, C=100.0. Intermediate results:
+
+      Training kernel K_train[i,j] = |⟨φ(xᵢ)|φ(xⱼ)⟩|²  shape 1600×1600, first 8×8 block (row/column label in brackets):
+               [BENIGN] [BENIGN]   [DDoS]   [DDoS]   [DDoS]   [DDoS]   [DDoS] [BENIGN]
+       [BENIGN]  1.0000   0.0266   0.0055   0.0023   0.0271   0.0034   0.0054   0.0043
+       [BENIGN]  0.0266   1.0000   0.0133   0.0018   0.0013   0.0004   0.0137   0.0071
+         [DDoS]  0.0055   0.0133   1.0000   0.0070   0.0002   0.0231   0.9997   0.0007
+         [DDoS]  0.0023   0.0018   0.0070   1.0000   0.0045   0.1690   0.0070   0.0033
+         [DDoS]  0.0271   0.0013   0.0002   0.0045   1.0000   0.0003   0.0002   0.0053
+         [DDoS]  0.0034   0.0004   0.0231   0.1690   0.0003   1.0000   0.0228   0.0005
+         [DDoS]  0.0054   0.0137   0.9997   0.0070   0.0002   0.0228   1.0000   0.0007
+       [BENIGN]  0.0043   0.0071   0.0007   0.0033   0.0053   0.0005   0.0007   1.0000
+      off-diagonal entries: mean 0.1191  std 0.2746  min 0.0000  max 1.0000  median 0.0110  | diagonal mean 1.0000
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     DDoS
+          BENIGN   0.2431   0.0215
+            DDoS   0.0215   0.1909
+      eigenvalues: largest 336.72, 249.14, 115.44, 105.87, 88.63 | smallest -8.14e-06 | effective rank 11.1 of 1600 | top-5 share 56.0%
+
+      Test kernel K_test[i,j] = |⟨φ(x_test,i)|φ(x_train,j)⟩|²  shape 400×1600, first 8×8 block (row/column label in brackets):
+               [BENIGN] [BENIGN]   [DDoS]   [DDoS]   [DDoS]   [DDoS]   [DDoS] [BENIGN]
+       [BENIGN]  0.0001   0.0078   0.0030   0.0150   0.0006   0.0060   0.0030   0.0130
+       [BENIGN]  0.0005   0.0075   0.0097   0.1157   0.0045   0.0376   0.0098   0.0014
+         [DDoS]  0.0015   0.0009   0.0003   0.0235   0.0029   0.0194   0.0003   0.0105
+       [BENIGN]  0.0035   0.0067   0.0011   0.0037   0.0108   0.0002   0.0011   0.8989
+         [DDoS]  0.0027   0.0082   0.0007   0.0260   0.0696   0.0055   0.0007   0.0547
+         [DDoS]  0.0043   0.0083   0.0005   0.0961   0.0150   0.0034   0.0005   0.0339
+         [DDoS]  0.0113   0.0029   0.1006   0.0548   0.0094   0.0649   0.0992   0.0003
+       [BENIGN]  0.0280   0.9320   0.0104   0.0020   0.0018   0.0003   0.0109   0.0079
+      all entries: mean 0.1175  std 0.2712  min 0.0000  max 1.0000  median 0.0110
+      mean kernel value by class (row class × column class):
+                   BENIGN     DDoS
+          BENIGN   0.2413   0.0196
+            DDoS   0.0200   0.1890
+
+      SVM: 77 support vectors of 1600 training flows (BENIGN=41, DDoS=36)
+      first 8 test flows: true → predicted (decision value; > 0 means DDoS)
+        #0     BENIGN → BENIGN    -1.7386  ok
+        #1     BENIGN → BENIGN    -1.2092  ok
+        #2       DDoS → DDoS      +1.0447  ok
+        #3     BENIGN → DDoS      +0.1529  WRONG
+        #4       DDoS → DDoS      +1.3398  ok
+        #5       DDoS → DDoS      +1.0496  ok
+        #6       DDoS → DDoS      +1.2403  ok
+        #7     BENIGN → BENIGN    -1.1858  ok
+
+      QSVM α=0.2, C=100.0 | accuracy 99.50% | macro-F1 0.9950 | train 3.4s | infer 0.2s
+[4/6] Classical SVM (RBF) on the same PCA features...
+      {'C': 100.0, 'gamma': 0.3} | accuracy 99.50% | macro-F1 0.9950
+
+      For comparison, classical RBF kernel exp(-γ‖zᵢ-zⱼ‖²), γ=0.3, same flows  shape 8×8, first 8×8 block (row/column label in brackets):
+               [BENIGN] [BENIGN]   [DDoS]   [DDoS]   [DDoS]   [DDoS]   [DDoS] [BENIGN]
+       [BENIGN]  1.0000   0.0297   0.0000   0.0000   0.0002   0.0000   0.0000   0.0001
+       [BENIGN]  0.0297   1.0000   0.0000   0.0002   0.0000   0.0001   0.0000   0.0026
+         [DDoS]  0.0000   0.0000   1.0000   0.0000   0.0000   0.0000   0.9999   0.0000
+         [DDoS]  0.0000   0.0002   0.0000   1.0000   0.0049   0.2553   0.0000   0.0059
+         [DDoS]  0.0002   0.0000   0.0000   0.0049   1.0000   0.0001   0.0000   0.0077
+         [DDoS]  0.0000   0.0001   0.0000   0.2553   0.0001   1.0000   0.0000   0.0004
+         [DDoS]  0.0000   0.0000   0.9999   0.0000   0.0000   0.0000   1.0000   0.0000
+       [BENIGN]  0.0001   0.0026   0.0000   0.0059   0.0077   0.0004   0.0000   1.0000
+      off-diagonal entries: mean 0.0467  std 0.1894  min 0.0000  max 0.9999  median 0.0000  | diagonal mean 1.0000
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     DDoS
+          BENIGN   0.0108   0.0010
+            DDoS   0.0010   0.1260
+      eigenvalues: largest 2.00, 1.26, 1.03, 1.01, 0.99 | smallest 1.35e-04 | effective rank 6.3 of 8 | top-5 share 78.6%
+[6/6] Quantum kernel: off-diag mean 0.1191 ± 0.2746 | alignment 0.3818 | geometric difference g=3.32 (√N=20.0)
+      Plot: /home/aneesh/Desktop/qcnn/outputs/feature_maps/binary/pauli_Y-ZZ/results_seed0.png
+
+[1/6] Loading ./output.csv (max=2,000, seed=1)...
+
+[2/6] Train: 1,600 | Test: 400 | test rows with an exact copy in train: 0.0%
+      Preprocessing: 49 features → PCA 8 (89.8% variance, fitted on train only)
+      Rotation angles θ = preprocessed training flows (first 8 of 1600 rows, one column per qubit, radians):
+       1.307  2.531  1.685  1.363  1.471  2.015  2.378  1.058
+       1.533  1.697  0.577  0.140  1.429  0.803  1.407  0.739
+       1.229  1.380  1.924  2.568  2.605  0.528  1.090  1.009
+       0.319  1.045  1.464  1.254  0.402  0.853  1.369  0.676
+       1.483  1.744  0.796  0.224  1.342  0.869  1.446  0.835
+       1.099  1.428  1.802  2.718  2.487  0.460  1.083  0.992
+       1.273  2.286  1.430  1.000  0.527  0.550  1.562  0.947
+       1.506  1.816  0.837  0.248  1.326  0.870  1.449  0.845
+
+[3/6] QSVM [pauli[Y,ZZ], 8q, reps=2, linear] tuning α, C by 5-fold CV on train
+  Kernel 400×1600 computed in 0.15s [pauli, backend=fast]
+      Selected α=0.4, C=10.0. Intermediate results:
+
+      Training kernel K_train[i,j] = |⟨φ(xᵢ)|φ(xⱼ)⟩|²  shape 1600×1600, first 8×8 block (row/column label in brackets):
+               [BENIGN] [BENIGN] [BENIGN]   [DDoS] [BENIGN] [BENIGN]   [DDoS] [BENIGN]
+       [BENIGN]  1.0000   0.0119   0.0677   0.0325   0.0545   0.0605   0.2298   0.0684
+       [BENIGN]  0.0119   1.0000   0.0286   0.0003   0.5903   0.0509   0.0121   0.4142
+       [BENIGN]  0.0677   0.0286   1.0000   0.0134   0.0719   0.7964   0.0281   0.0731
+         [DDoS]  0.0325   0.0003   0.0134   1.0000   0.0019   0.0051   0.0343   0.0018
+       [BENIGN]  0.0545   0.5903   0.0719   0.0019   1.0000   0.0946   0.1095   0.9427
+       [BENIGN]  0.0605   0.0509   0.7964   0.0051   0.0946   1.0000   0.0451   0.0997
+         [DDoS]  0.2298   0.0121   0.0281   0.0343   0.1095   0.0451   1.0000   0.1393
+       [BENIGN]  0.0684   0.4142   0.0731   0.0018   0.9427   0.0997   0.1393   1.0000
+      off-diagonal entries: mean 0.1089  std 0.2235  min 0.0000  max 1.0000  median 0.0195  | diagonal mean 1.0000
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     DDoS
+          BENIGN   0.2057   0.0378
+            DDoS   0.0378   0.1545
+      eigenvalues: largest 270.44, 205.55, 99.34, 91.46, 73.36 | smallest -8.12e-06 | effective rank 16.0 of 1600 | top-5 share 46.3%
+
+      Test kernel K_test[i,j] = |⟨φ(x_test,i)|φ(x_train,j)⟩|²  shape 400×1600, first 8×8 block (row/column label in brackets):
+               [BENIGN] [BENIGN] [BENIGN]   [DDoS] [BENIGN] [BENIGN]   [DDoS] [BENIGN]
+       [BENIGN]  0.2126   0.0298   0.0035   0.0480   0.1337   0.0658   0.2687   0.1459
+       [BENIGN]  0.0990   0.2314   0.0605   0.0026   0.7453   0.1121   0.1701   0.9039
+         [DDoS]  0.0043   0.0081   0.0004   0.0349   0.0031   0.0002   0.0010   0.0024
+         [DDoS]  0.0201   0.0017   0.0042   0.5730   0.0012   0.0032   0.0175   0.0009
+       [BENIGN]  0.1984   0.0386   0.0240   0.0035   0.0706   0.0017   0.0913   0.0727
+         [DDoS]  0.0998   0.0022   0.0284   0.0782   0.0206   0.0223   0.0500   0.0203
+       [BENIGN]  0.2865   0.1156   0.0190   0.0195   0.1690   0.0375   0.1407   0.1547
+         [DDoS]  0.0414   0.4505   0.0346   0.0012   0.4372   0.0779   0.0563   0.4608
+      all entries: mean 0.1121  std 0.2286  min 0.0000  max 1.0000  median 0.0197
+      mean kernel value by class (row class × column class):
+                   BENIGN     DDoS
+          BENIGN   0.2161   0.0410
+            DDoS   0.0341   0.1572
+
+      SVM: 135 support vectors of 1600 training flows (BENIGN=81, DDoS=54)
+      first 8 test flows: true → predicted (decision value; > 0 means DDoS)
+        #0     BENIGN → BENIGN    -0.8982  ok
+        #1     BENIGN → BENIGN    -1.7562  ok
+        #2       DDoS → DDoS      +1.0848  ok
+        #3       DDoS → DDoS      +1.8729  ok
+        #4     BENIGN → BENIGN    -1.0046  ok
+        #5       DDoS → DDoS      +1.0660  ok
+        #6     BENIGN → BENIGN    -1.1758  ok
+        #7       DDoS → DDoS      +1.2111  ok
+
+      QSVM α=0.4, C=10.0 | accuracy 99.25% | macro-F1 0.9925 | train 3.8s | infer 0.2s
+[4/6] Classical SVM (RBF) on the same PCA features...
+      {'C': 100.0, 'gamma': 0.1} | accuracy 99.25% | macro-F1 0.9925
+
+      For comparison, classical RBF kernel exp(-γ‖zᵢ-zⱼ‖²), γ=0.1, same flows  shape 8×8, first 8×8 block (row/column label in brackets):
+               [BENIGN] [BENIGN] [BENIGN]   [DDoS] [BENIGN] [BENIGN]   [DDoS] [BENIGN]
+       [BENIGN]  1.0000   0.0447   0.0116   0.0326   0.0717   0.0100   0.0780   0.0770
+       [BENIGN]  0.0447   1.0000   0.0546   0.2700   0.9599   0.0516   0.3974   0.9465
+       [BENIGN]  0.0116   0.0546   1.0000   0.0618   0.0669   0.9779   0.0679   0.0688
+         [DDoS]  0.0326   0.2700   0.0618   1.0000   0.3168   0.0690   0.4448   0.3154
+       [BENIGN]  0.0717   0.9599   0.0669   0.3168   1.0000   0.0625   0.5044   0.9978
+       [BENIGN]  0.0100   0.0516   0.9779   0.0690   0.0625   1.0000   0.0726   0.0644
+         [DDoS]  0.0780   0.3974   0.0679   0.4448   0.5044   0.0726   1.0000   0.5310
+       [BENIGN]  0.0770   0.9465   0.0688   0.3154   0.9978   0.0644   0.5310   1.0000
+      off-diagonal entries: mean 0.2724  std 0.3228  min 0.0100  max 0.9978  median 0.0721  | diagonal mean 1.0000
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     DDoS
+          BENIGN   0.2977   0.2264
+            DDoS   0.2264   0.4448
+      eigenvalues: largest 3.45, 1.96, 1.02, 0.98, 0.53 | smallest 9.93e-04 | effective rank 3.6 of 8 | top-5 share 99.1%
+[6/6] Quantum kernel: off-diag mean 0.1089 ± 0.2235 | alignment 0.3410 | geometric difference g=39.53 (√N=20.0)
+
+[1/6] Loading ./output.csv (max=2,000, seed=2)...
+
+[2/6] Train: 1,600 | Test: 400 | test rows with an exact copy in train: 0.0%
+      Preprocessing: 49 features → PCA 8 (90.0% variance, fitted on train only)
+      Rotation angles θ = preprocessed training flows (first 8 of 1600 rows, one column per qubit, radians):
+       2.877  0.366  2.041  1.558  0.630  1.748  0.881  0.720
+       1.164  0.635  1.026  0.626  1.398  1.723  0.845  0.655
+       1.505  1.764  2.063  0.224  1.242  1.405  1.284  0.678
+       1.207  0.575  1.036  0.620  1.466  1.736  0.792  0.655
+       1.751  2.849  0.822  1.340  1.395  2.235  0.760  0.536
+       0.239  0.885  1.556  1.400  0.533  1.095  0.825  0.773
+       1.206  0.575  1.037  0.622  1.465  1.736  0.792  0.654
+       1.172  0.605  1.049  0.625  1.447  1.748  0.825  0.645
+
+[3/6] QSVM [pauli[Y,ZZ], 8q, reps=2, linear] tuning α, C by 5-fold CV on train
+  Kernel 400×1600 computed in 0.14s [pauli, backend=fast]
+      Selected α=0.2, C=100.0. Intermediate results:
+
+      Training kernel K_train[i,j] = |⟨φ(xᵢ)|φ(xⱼ)⟩|²  shape 1600×1600, first 8×8 block (row/column label in brackets):
+               [BENIGN]   [DDoS] [BENIGN]   [DDoS]   [DDoS]   [DDoS]   [DDoS]   [DDoS]
+       [BENIGN]  1.0000   0.0755   0.0393   0.0745   0.0385   0.0776   0.0742   0.0727
+         [DDoS]  0.0755   1.0000   0.0123   0.9832   0.0016   0.0058   0.9833   0.9917
+       [BENIGN]  0.0393   0.0123   1.0000   0.0107   0.0118   0.0052   0.0107   0.0117
+         [DDoS]  0.0745   0.9832   0.0107   1.0000   0.0018   0.0092   1.0000   0.9954
+         [DDoS]  0.0385   0.0016   0.0118   0.0018   1.0000   0.0013   0.0019   0.0018
+         [DDoS]  0.0776   0.0058   0.0052   0.0092   0.0013   1.0000   0.0091   0.0072
+         [DDoS]  0.0742   0.9833   0.0107   1.0000   0.0019   0.0091   1.0000   0.9955
+         [DDoS]  0.0727   0.9917   0.0117   0.9954   0.0018   0.0072   0.9955   1.0000
+      off-diagonal entries: mean 0.1174  std 0.2707  min 0.0000  max 1.0000  median 0.0119  | diagonal mean 1.0000
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     DDoS
+          BENIGN   0.2431   0.0222
+            DDoS   0.0222   0.1823
+      eigenvalues: largest 335.09, 239.09, 114.42, 101.44, 91.48 | smallest -8.09e-06 | effective rank 11.4 of 1600 | top-5 share 55.1%
+
+      Test kernel K_test[i,j] = |⟨φ(x_test,i)|φ(x_train,j)⟩|²  shape 400×1600, first 8×8 block (row/column label in brackets):
+               [BENIGN]   [DDoS] [BENIGN]   [DDoS]   [DDoS]   [DDoS]   [DDoS]   [DDoS]
+       [BENIGN]  0.0383   0.0131   0.9902   0.0110   0.0083   0.0054   0.0111   0.0121
+       [BENIGN]  0.0134   0.0048   0.0040   0.0025   0.0003   0.5852   0.0025   0.0032
+       [BENIGN]  0.0200   0.0116   0.8939   0.0093   0.0021   0.0034   0.0093   0.0102
+       [BENIGN]  0.0530   0.0066   0.0031   0.0069   0.0018   0.0010   0.0069   0.0070
+         [DDoS]  0.0135   0.0078   0.0163   0.0042   0.0091   0.0518   0.0042   0.0057
+       [BENIGN]  0.8202   0.0724   0.0150   0.0740   0.0523   0.0563   0.0739   0.0712
+         [DDoS]  0.0726   0.9917   0.0117   0.9954   0.0018   0.0072   0.9954   1.0000
+         [DDoS]  0.0195   0.0089   0.0087   0.0100   0.0294   0.0002   0.0100   0.0098
+      all entries: mean 0.1208  std 0.2742  min 0.0000  max 1.0000  median 0.0121
+      mean kernel value by class (row class × column class):
+                   BENIGN     DDoS
+          BENIGN   0.2541   0.0225
+            DDoS   0.0215   0.1851
+
+      SVM: 65 support vectors of 1600 training flows (BENIGN=30, DDoS=35)
+      first 8 test flows: true → predicted (decision value; > 0 means DDoS)
+        #0     BENIGN → BENIGN    -1.6478  ok
+        #1     BENIGN → BENIGN    -1.1971  ok
+        #2     BENIGN → BENIGN    -1.4269  ok
+        #3     BENIGN → BENIGN    -1.0728  ok
+        #4       DDoS → DDoS      +1.1387  ok
+        #5     BENIGN → BENIGN    -2.8879  ok
+        #6       DDoS → DDoS      +1.2109  ok
+        #7       DDoS → DDoS      +1.0548  ok
+
+      QSVM α=0.2, C=100.0 | accuracy 99.25% | macro-F1 0.9925 | train 3.8s | infer 0.1s
+[4/6] Classical SVM (RBF) on the same PCA features...
+      {'C': 100.0, 'gamma': 0.3} | accuracy 99.25% | macro-F1 0.9925
+
+      For comparison, classical RBF kernel exp(-γ‖zᵢ-zⱼ‖²), γ=0.3, same flows  shape 8×8, first 8×8 block (row/column label in brackets):
+               [BENIGN]   [DDoS] [BENIGN]   [DDoS]   [DDoS]   [DDoS]   [DDoS]   [DDoS]
+       [BENIGN]  1.0000   0.0162   0.0099   0.0162   0.0004   0.0054   0.0162   0.0159
+         [DDoS]  0.0162   1.0000   0.0714   0.9871   0.0114   0.0678   0.9873   0.9941
+       [BENIGN]  0.0099   0.0714   1.0000   0.0602   0.0072   0.0218   0.0603   0.0666
+         [DDoS]  0.0162   0.9871   0.0602   1.0000   0.0099   0.0548   1.0000   0.9954
+         [DDoS]  0.0004   0.0114   0.0072   0.0099   1.0000   0.0005   0.0100   0.0110
+         [DDoS]  0.0054   0.0678   0.0218   0.0548   0.0005   1.0000   0.0552   0.0586
+         [DDoS]  0.0162   0.9873   0.0603   1.0000   0.0100   0.0552   1.0000   0.9955
+         [DDoS]  0.0159   0.9941   0.0666   0.9954   0.0110   0.0586   0.9955   1.0000
+      off-diagonal entries: mean 0.2359  std 0.3961  min 0.0004  max 1.0000  median 0.0383  | diagonal mean 1.0000
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     DDoS
+          BENIGN   0.0099   0.0298
+            DDoS   0.0298   0.4159
+      eigenvalues: largest 3.99, 1.02, 1.00, 1.00, 0.98 | smallest 3.74e-06 | effective rank 3.2 of 8 | top-5 share 99.7%
+[6/6] Quantum kernel: off-diag mean 0.1174 ± 0.2707 | alignment 0.3772 | geometric difference g=2.87 (√N=20.0)
+
+========================================================================
+  RESULTS SUMMARY  (binary, 3 seed(s): [0, 1, 2])
+========================================================================
+  Method                  Accuracy        Macro-F1             AUC    FalseAlarm
+  QSVM (pauli)        99.33 ± 0.12    99.33 ± 0.12    99.89 ± 0.15   0.50 ± 0.41
+  RBF-SVM             99.33 ± 0.12    99.33 ± 0.12    99.87 ± 0.16   0.50 ± 0.41
+
+  McNemar p-value (QSVM vs RBF) per seed: 1, 1, 1
+  Saved: /home/aneesh/Desktop/qcnn/outputs/feature_maps/binary/pauli_Y-ZZ/results.json
+========================================================================

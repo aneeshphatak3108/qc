@@ -16,7 +16,7 @@ sys.path.insert(0, ROOT)
 from data_loader import duplicate_overlap, load_csv          # noqa: E402
 from evaluation import centered_alignment, geometric_difference, mcnemar  # noqa: E402
 from preprocessing import QuantumPreprocessor                # noqa: E402
-from qsvm import QSVM, QuantumKernel, entangling_pairs       # noqa: E402
+from qsvm import QSVM, QuantumKernel, entangling_pairs, entangling_subsets  # noqa: E402
 
 CSV = os.path.join(ROOT, "output.csv")
 
@@ -57,6 +57,85 @@ class TestFastEngineMatchesCirq(unittest.TestCase):
         old = legacy.QuantumKernel(6, 2).compute_kernel_value(a, b)
         new = QuantumKernel(6, 2).compute_kernel_value(a, b)
         self.assertAlmostEqual(new, old, places=5)
+
+
+class TestPauliFeatureMaps(unittest.TestCase):
+    """The general Pauli engine against Cirq circuits and dense exp(-iφP)."""
+
+    MAPS = [["Z"], ["Y", "ZZ"], ["X", "ZZ"], ["Z", "XX"], ["Z", "YY"],
+            ["Z", "ZZ", "ZZZ"], ["X", "Y", "Z", "XY"]]
+
+    @staticmethod
+    def _overlap(A, B):
+        # statevectors agree up to a global phase
+        return np.abs(np.sum(A.conj() * B, axis=1))
+
+    def test_matches_cirq(self):
+        X = np.random.default_rng(10).uniform(0, np.pi, (4, 5))
+        for paulis in self.MAPS:
+            for ent in ["linear", "circular", "full"]:
+                kw = dict(feature_map="pauli", paulis=paulis, entanglement=ent,
+                          alpha=0.8, data_map="cosine")
+                fast = QuantumKernel(5, 2, **kw).states(X)
+                ref = QuantumKernel(5, 2, backend="cirq", **kw).states(X)
+                np.testing.assert_allclose(self._overlap(fast, ref), 1.0, atol=1e-5,
+                                           err_msg=f"{paulis} {ent}")
+
+    def test_matches_dense_matrix_exponential(self):
+        from scipy.linalg import expm
+        from qsvm import data_map_fn, pauli_terms
+        P = {"X": np.array([[0, 1], [1, 0]]), "Y": np.array([[0, -1j], [1j, 0]]),
+             "Z": np.diag([1, -1])}
+        H1 = np.array([[1, 1], [1, -1]]) / np.sqrt(2)
+        n, reps, alpha = 4, 2, 0.7
+        Hn = H1
+        for _ in range(n - 1):
+            Hn = np.kron(Hn, H1)
+        f = data_map_fn("havlicek")
+        x = np.random.default_rng(11).uniform(0, np.pi, n)
+        for paulis in self.MAPS:
+            psi = np.zeros(2 ** n, complex)
+            psi[0] = 1
+            for _ in range(reps):
+                psi = Hn @ psi
+                for letters, S in pauli_terms(n, paulis, "linear"):
+                    ops = [np.eye(2)] * n
+                    for l, q in zip(letters, S):
+                        ops[q] = P[l]
+                    M = ops[0]
+                    for o in ops[1:]:
+                        M = np.kron(M, o)
+                    xa = alpha * x
+                    phi = xa[S[0]] if len(S) == 1 else f(xa[list(S)])
+                    psi = expm(-1j * phi * M) @ psi
+            fast = QuantumKernel(n, reps, feature_map="pauli", paulis=paulis,
+                                 alpha=alpha).states(x[None])
+            self.assertAlmostEqual(self._overlap(fast, psi[None])[0], 1.0, places=5,
+                                   msg=str(paulis))
+
+    def test_z_zz_pauli_map_is_the_zz_map(self):
+        X = np.random.default_rng(12).uniform(0, np.pi, (6, 6))
+        for ent in ["linear", "full"]:
+            for dm in ["havlicek", "product", "cosine", "exp"]:
+                zz = QuantumKernel(6, 2, entanglement=ent, alpha=0.6, data_map=dm)
+                pz = QuantumKernel(6, 2, feature_map="pauli", entanglement=ent, alpha=0.6,
+                                   data_map=dm)
+                np.testing.assert_allclose(zz.compute_kernel_matrix(X, verbose=False),
+                                           pz.compute_kernel_matrix(X, verbose=False),
+                                           atol=1e-5)
+
+    def test_zz_data_map_matches_cirq(self):
+        X = np.random.default_rng(13).uniform(0, np.pi, (4, 5))
+        for dm in ["product", "cosine", "exp"]:
+            fast = QuantumKernel(5, 2, data_map=dm, alpha=0.9)
+            ref = QuantumKernel(5, 2, data_map=dm, alpha=0.9, backend="cirq")
+            np.testing.assert_allclose(fast.states(X), ref.states(X), atol=1e-5)
+
+    def test_entangling_subsets(self):
+        self.assertEqual(entangling_subsets(5, 1), [(i,) for i in range(5)])
+        self.assertEqual(entangling_subsets(5, 3, "linear"), [(0, 1, 2), (1, 2, 3), (2, 3, 4)])
+        self.assertEqual(len(entangling_subsets(5, 3, "circular")), 5)
+        self.assertEqual(len(entangling_subsets(5, 3, "full")), 10)
 
 
 class TestKernelProperties(unittest.TestCase):

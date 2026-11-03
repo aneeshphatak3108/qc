@@ -1,0 +1,15 @@
+./venv/bin/python main.py --n-qubits 8                          # binary, ~15 s
+./venv/bin/python main.py --n-qubits 8 --mode multiclass        # 6 classes
+./venv/bin/python main.py                                       # 16 qubits, ~2–3 min
+
+
+./venv/bin/python main.py --n-qubits 8 --n-reps 3
+./venv/bin/python main.py --n-qubits 8 --entanglement circular   # or full
+./venv/bin/python main.py --n-qubits 8 --data-map product        # or cosine, exp
+./venv/bin/python main.py --n-qubits 8 --alphas 0.1              # fixed bandwidth
+
+
+./venv/bin/python main.py --n-qubits 8 --kernel pauli --paulis Y ZZ
+./venv/bin/python main.py --n-qubits 8 --kernel pauli --paulis Z ZZ ZZZ
+./venv/bin/python main.py --n-qubits 8 --kernel pauli --paulis Z
+./venv/bin/python main.py --n-qubits 8 --kernel rx

@@ -36,6 +36,11 @@ What changed vs. the original implementation (legacy/qsvm.py)
   5. The paper's separable Rx kernel (Method 1) is available as
      feature_map='rx' — K(a,b) = Πᵢ cos²((aᵢ-bᵢ)/2) — so all methods run
      through the same, identical pipeline.
+  9. General Pauli feature maps (feature_map='pauli'): any list of Pauli
+     strings (['Z'], ['Y', 'ZZ'], ['Z', 'XX'], ['Z', 'ZZ', 'ZZZ'], …),
+     k-body entanglement and a choice of data map φ_S
+     (havlicek | product | cosine | exp, after Suzuki et al. 2020). Exact
+     batched engine: FastPauliStatevector. The ZZ map also accepts data_map.
   6. Fast shot-noise emulation. With use_sampling=True and the fast backend
      each entry is drawn as Binomial(shots, K)/shots. This is exactly the
      distribution of "fraction of all-zero outcomes" obtained by running
@@ -56,6 +61,7 @@ Reference:
   Shaydulin & Wild (2022) Phys. Rev. A 106, 042407 (kernel bandwidth).
   Huang et al. (2021) Nature Communications 12, 2631 (power of data).
   Hubregtsen et al. (2022) Phys. Rev. A 106, 042431 (kernel mitigation).
+  Suzuki et al. (2020) Quantum Mach. Intell. 2, 9 (feature-map data maps).
 """
 
 import time
@@ -73,14 +79,47 @@ INV_SQRT2 = 1.0 / np.sqrt(2.0)
 
 
 def entangling_pairs(n_qubits: int, entanglement: str = "linear") -> List[Tuple[int, int]]:
+    return entangling_subsets(n_qubits, 2, entanglement)
+
+
+def entangling_subsets(n_qubits: int, k: int,
+                       entanglement: str = "linear") -> List[Tuple[int, ...]]:
+    """Qubit subsets a k-body Pauli term acts on (k=1: every qubit)."""
+    if k == 1:
+        return [(i,) for i in range(n_qubits)]
+    if k > n_qubits:
+        return []
     if entanglement == "linear":
-        return [(i, i + 1) for i in range(n_qubits - 1)]
+        return [tuple(range(i, i + k)) for i in range(n_qubits - k + 1)]
     if entanglement == "circular":
-        pairs = [(i, i + 1) for i in range(n_qubits - 1)]
-        return pairs + ([(n_qubits - 1, 0)] if n_qubits > 2 else [])
+        subsets = [tuple(range(i, i + k)) for i in range(n_qubits - k + 1)]
+        if n_qubits > k:
+            subsets += [tuple((i + j) % n_qubits for j in range(k))
+                        for i in range(n_qubits - k + 1, n_qubits)]
+        return subsets
     if entanglement == "full":
-        return list(combinations(range(n_qubits), 2))
+        return list(combinations(range(n_qubits), k))
     raise ValueError(f"unknown entanglement {entanglement!r}")
+
+
+# ── Data maps φ_S(x) for multi-qubit terms ───────────────────────────────────
+# A k-body term on qubit subset S is exp(-i φ_S(x) P_S). One-body terms always
+# use φ_i(x) = xᵢ. The variants follow Suzuki et al. (2020), who compared
+# several choices of φ for the ZZ map. Input: x_S of shape (..., k), the
+# map reduces over the last axis.
+
+DATA_MAPS = {
+    "havlicek": lambda xs: np.prod(np.pi - xs, axis=-1),        # Havlíček 2019 / Qiskit default
+    "product": lambda xs: np.prod(xs, axis=-1),
+    "cosine": lambda xs: np.pi * np.prod(np.cos(xs), axis=-1),
+    "exp": lambda xs: np.exp((xs.max(axis=-1) - xs.min(axis=-1)) ** 2 / (8 / np.log(np.pi))),
+}
+
+
+def data_map_fn(name: str):
+    if name not in DATA_MAPS:
+        raise ValueError(f"unknown data map {name!r} (choose from {sorted(DATA_MAPS)})")
+    return DATA_MAPS[name]
 
 
 # ── Cirq reference feature maps ───────────────────────────────────────────────
@@ -103,12 +142,14 @@ class ZZFeatureMap:
     """
 
     def __init__(self, n_qubits: int = 16, n_reps: int = 2,
-                 entanglement: str = "linear", alpha: float = 1.0):
+                 entanglement: str = "linear", alpha: float = 1.0,
+                 data_map: str = "havlicek"):
         self.n_qubits = n_qubits
         self.n_reps = n_reps
         self.alpha = alpha
         self.pairs = entangling_pairs(n_qubits, entanglement)
         self.qubits = cirq.LineQubit.range(n_qubits)
+        self.data_map = data_map_fn(data_map)
 
     def build_encoding_circuit(self, angles: np.ndarray) -> cirq.Circuit:
         assert len(angles) == self.n_qubits
@@ -119,7 +160,7 @@ class ZZFeatureMap:
             for i, q in enumerate(self.qubits):
                 ops.append(cirq.rz(2.0 * x[i])(q))
             for i, j in self.pairs:
-                zz_angle = 2.0 * (np.pi - x[i]) * (np.pi - x[j])
+                zz_angle = 2.0 * self.data_map(x[None, [i, j]])[0]
                 ops.append(cirq.CNOT(self.qubits[i], self.qubits[j]))
                 ops.append(cirq.rz(zz_angle)(self.qubits[j]))
                 ops.append(cirq.CNOT(self.qubits[i], self.qubits[j]))
@@ -147,6 +188,56 @@ class RxFeatureMap(ZZFeatureMap):
         return cirq.Circuit(cirq.rx(x[i])(q) for i, q in enumerate(self.qubits))
 
 
+class PauliFeatureMap(ZZFeatureMap):
+    """
+    General Pauli feature map (Havlíček et al. 2019; Qiskit's PauliFeatureMap).
+
+    One repetition: H on every qubit, then for every Pauli string P in
+    `paulis` (e.g. ['Z', 'ZZ'], ['Y', 'XX'], ['Z', 'ZZ', 'ZZZ']) and every
+    qubit subset S given by `entanglement`:
+        exp(-i φ_S(x) P_S),   φ_i(x) = xᵢ,   φ_S(x) = data_map(x_S) for |S| > 1
+    Letter m of P acts on qubit S[m]. paulis=['Z', 'ZZ'] is the ZZ map.
+
+    Each term is built the textbook way: rotate every qubit of S into the
+    Z basis (X: H, Y: H·S†), CNOT ladder, Rz(2φ) on the last qubit, undo.
+    """
+
+    def __init__(self, n_qubits: int = 16, n_reps: int = 2, paulis=("Z", "ZZ"),
+                 entanglement: str = "linear", alpha: float = 1.0,
+                 data_map: str = "havlicek"):
+        super().__init__(n_qubits, n_reps, entanglement, alpha, data_map)
+        self.terms = pauli_terms(n_qubits, paulis, entanglement)
+
+    def build_encoding_circuit(self, angles: np.ndarray) -> cirq.Circuit:
+        x = self.alpha * np.asarray(angles, dtype=np.float64)
+        ops = []
+        for _ in range(self.n_reps):
+            ops += [cirq.H(q) for q in self.qubits]
+            for letters, S in self.terms:
+                phi = x[S[0]] if len(S) == 1 else self.data_map(x[None, list(S)])[0]
+                qs = [self.qubits[i] for i in S]
+                pre, post = [], []
+                for p, q in zip(letters, qs):
+                    if p == "X":
+                        pre.append(cirq.H(q)); post.append(cirq.H(q))
+                    elif p == "Y":
+                        pre += [cirq.S(q) ** -1, cirq.H(q)]; post += [cirq.H(q), cirq.S(q)]
+                ladder = [cirq.CNOT(qs[m], qs[m + 1]) for m in range(len(qs) - 1)]
+                ops += pre + ladder + [cirq.rz(2.0 * phi)(qs[-1])] + ladder[::-1] + post
+        return cirq.Circuit(ops)
+
+
+def pauli_terms(n_qubits: int, paulis, entanglement: str = "linear"):
+    """[(letters, subset), ...] in application order for one repetition."""
+    terms = []
+    for p in paulis:
+        p = p.upper()
+        if not p or set(p) - set("XYZ"):
+            raise ValueError(f"invalid Pauli string {p!r}")
+        terms += [(p, S) for S in entangling_subsets(n_qubits, len(p), entanglement)]
+    return terms
+
+
 # ── Fast exact statevector engine ────────────────────────────────────────────
 
 def _hadamard_matrix(n: int) -> np.ndarray:
@@ -166,10 +257,12 @@ class FastZZStatevector:
     """
 
     def __init__(self, n_qubits: int, n_reps: int = 2,
-                 entanglement: str = "linear", alpha: float = 1.0):
+                 entanglement: str = "linear", alpha: float = 1.0,
+                 data_map: str = "havlicek"):
         self.n_qubits = n_qubits
         self.n_reps = n_reps
         self.alpha = alpha
+        self.data_map = data_map_fn(data_map)
         self.dim = 2 ** n_qubits
         self.pairs = entangling_pairs(n_qubits, entanglement)
         idx = np.arange(self.dim)
@@ -187,7 +280,7 @@ class FastZZStatevector:
         x = self.alpha * np.atleast_2d(angles)
         phi = x @ self.S.T
         if self.pairs:
-            w = (np.pi - x[:, self._pa]) * (np.pi - x[:, self._pb])
+            w = self.data_map(np.stack([x[:, self._pa], x[:, self._pb]], axis=-1))
             phi += w @ self.SP.T
         return phi
 
@@ -207,6 +300,88 @@ class FastZZStatevector:
             psi = D * self.dim ** -0.5                 # D · H^{⊗n} |0…0⟩
             for _ in range(self.n_reps - 1):
                 psi = self._hadamard_all(psi) * D
+            out[s:s + batch_size] = psi
+        return out
+
+
+class FastPauliStatevector(FastZZStatevector):
+    """
+    Exact statevectors of a general PauliFeatureMap, batched over samples.
+
+    P_S is a Pauli string, so P_S² = I and
+        exp(-i φ P_S) ψ = cos φ · ψ − i sin φ · P_S ψ.
+    P_S|z⟩ = c(z)|z ⊕ m⟩, where m flips the bits of the X/Y qubits and
+    c(z) = Πₖ cₖ(zₖ), with c_X = 1, c_Y = i(−1)^z and c_Z = (−1)^z. So
+    P_S ψ is a fixed index permutation times a fixed phase vector. Runs of
+    consecutive Z-only terms commute and are merged into one diagonal phase,
+    as in FastZZStatevector. One-qubit X/Y terms skip the permutation and
+    apply their 2×2 rotation on a reshaped view of ψ.
+    """
+
+    def __init__(self, n_qubits: int, n_reps: int = 2, paulis=("Z", "ZZ"),
+                 entanglement: str = "linear", alpha: float = 1.0,
+                 data_map: str = "havlicek"):
+        super().__init__(n_qubits, n_reps, "linear", alpha, data_map)
+        bits = (1 - self.S) / 2                                    # (dim, n) z-bits
+        idx = np.arange(self.dim)
+        # blocks: ("diag", [subsets], (dim, T) signs), ("1q", subset, letter, None)
+        #         or ("pauli", subset, src, coef)
+        self.blocks = []
+        for letters, S in pauli_terms(n_qubits, paulis, entanglement):
+            if set(letters) == {"Z"}:
+                sign = np.prod(self.S[:, list(S)], axis=1)
+                if self.blocks and self.blocks[-1][0] == "diag":
+                    self.blocks[-1][1].append(S)
+                    self.blocks[-1][2].append(sign)
+                else:
+                    self.blocks.append(("diag", [S], [sign]))
+                continue
+            if len(S) == 1:
+                self.blocks.append(("1q", S, letters, None))
+                continue
+            mask = sum(1 << (n_qubits - 1 - q) for p, q in zip(letters, S) if p in "XY")
+            src = idx ^ mask
+            coef = np.ones(self.dim, dtype=np.complex128)
+            for p, q in zip(letters, S):
+                z = bits[src, q]                                   # bit of the source state
+                if p == "Y":
+                    coef *= 1j * (1 - 2 * z)
+                elif p == "Z":
+                    coef *= 1 - 2 * z
+            self.blocks.append(("pauli", S, src, coef.astype(np.complex64)))
+        self.blocks = [(b[0], b[1], np.stack(b[2], axis=1), None) if b[0] == "diag" else b
+                       for b in self.blocks]
+
+    def _phi(self, x: np.ndarray, S) -> np.ndarray:
+        return x[:, S[0]] if len(S) == 1 else self.data_map(x[:, list(S)])
+
+    def states(self, angles: np.ndarray, batch_size: int = 128) -> np.ndarray:
+        angles = np.atleast_2d(angles)
+        out = np.empty((len(angles), self.dim), dtype=np.complex64)
+        for s in range(0, len(angles), batch_size):
+            x = self.alpha * angles[s:s + batch_size]
+            psi = np.full((len(x), self.dim), self.dim ** -0.5, dtype=np.complex64)
+            for r in range(self.n_reps):
+                if r:
+                    psi = self._hadamard_all(psi)
+                for kind, S, a, b in self.blocks:
+                    if kind == "diag":
+                        phi = np.stack([self._phi(x, T) for T in S], axis=1) @ a.T
+                        psi *= (np.cos(phi) - 1j * np.sin(phi)).astype(np.complex64)
+                        continue
+                    phi = self._phi(x, S).astype(np.float32)
+                    c, sn = np.cos(phi), np.sin(phi)
+                    if kind == "1q":
+                        # exp(-iφX) = [[c, -is], [-is, c]],  exp(-iφY) = [[c, -s], [s, c]]
+                        q = S[0]
+                        v = psi.reshape(len(x), 2 ** q, 2, -1)
+                        c, sn = c[:, None, None], sn[:, None, None]
+                        p0, p1 = v[:, :, 0, :].copy(), v[:, :, 1, :]
+                        off = -1j * sn if a == "X" else sn
+                        v[:, :, 0, :] = c * p0 + (-off if a == "Y" else off) * p1
+                        v[:, :, 1, :] = off * p0 + c * p1
+                    else:
+                        psi = c[:, None] * psi - 1j * sn[:, None] * (b[None, :] * psi[:, a])
             out[s:s + batch_size] = psi
         return out
 
@@ -231,12 +406,14 @@ class QuantumKernel:
         False: exact kernel.
         True + backend='fast': Binomial(shots, K)/shots shot-noise emulation.
         True + backend='cirq': run U†(a)U(b) circuits (original method).
-    feature_map : 'zz' or 'rx'
+    feature_map : 'zz', 'rx' or 'pauli'
     entanglement : 'linear' | 'circular' | 'full'
     alpha : float      bandwidth — angles are multiplied by alpha
     backend : 'fast' (NumPy, exact) or 'cirq' (Cirq statevector simulator)
     seed : int         RNG seed for shot-noise emulation
     psd_project : bool clip negative eigenvalues of sampled training kernels
+    paulis : list      Pauli strings for feature_map='pauli', e.g. ['Z', 'ZZ']
+    data_map : str     φ_S for multi-qubit terms (zz / pauli), see DATA_MAPS
     """
 
     def __init__(
@@ -251,6 +428,8 @@ class QuantumKernel:
         backend: str = "fast",
         seed: Optional[int] = 42,
         psd_project: bool = False,
+        paulis=("Z", "ZZ"),
+        data_map: str = "havlicek",
     ):
         self.n_qubits = n_qubits
         self.n_reps = n_reps
@@ -262,8 +441,13 @@ class QuantumKernel:
         self.backend = backend
         self.rng = np.random.default_rng(seed)
         if feature_map == "zz":
-            self.feature_map = ZZFeatureMap(n_qubits, n_reps, entanglement, alpha)
-            self.engine = FastZZStatevector(n_qubits, n_reps, entanglement, alpha)
+            self.feature_map = ZZFeatureMap(n_qubits, n_reps, entanglement, alpha, data_map)
+            self.engine = FastZZStatevector(n_qubits, n_reps, entanglement, alpha, data_map)
+        elif feature_map == "pauli":
+            self.feature_map = PauliFeatureMap(n_qubits, n_reps, paulis, entanglement,
+                                               alpha, data_map)
+            self.engine = FastPauliStatevector(n_qubits, n_reps, paulis, entanglement,
+                                               alpha, data_map)
         elif feature_map == "rx":
             self.feature_map = RxFeatureMap(n_qubits, alpha)
             self.engine = None
@@ -290,7 +474,7 @@ class QuantumKernel:
     def _simulate(self, X: np.ndarray) -> np.ndarray:
         self.n_state_simulations += len(X)
         if self.backend == "fast":
-            if self.feature_map_name == "zz":
+            if self.engine is not None:
                 return self.engine.states(X)
             return self._rx_states(X)
         if self.backend == "cirq":
@@ -407,7 +591,7 @@ class QSVM:
     n_reps : int           ZZ repetitions
     C : float              SVM regularisation
     shots, use_sampling    see QuantumKernel
-    feature_map : 'zz' | 'rx'
+    feature_map : 'zz' | 'rx' | 'pauli'
     entanglement : 'linear' | 'circular' | 'full'
     alpha : float          kernel bandwidth
     backend : 'fast' | 'cirq'
@@ -415,6 +599,7 @@ class QSVM:
                            leakage-free QuantumPreprocessor(n_qubits)
     seed : int
     psd_project : bool     see QuantumKernel
+    paulis, data_map       see QuantumKernel
     """
 
     def __init__(
@@ -431,6 +616,8 @@ class QSVM:
         preprocessor=None,
         seed: int = 42,
         psd_project: bool = False,
+        paulis=("Z", "ZZ"),
+        data_map: str = "havlicek",
     ):
         self.n_qubits = n_qubits
         self.n_reps = n_reps
@@ -438,7 +625,7 @@ class QSVM:
         self.seed = seed
         self.quantum_kernel = QuantumKernel(
             n_qubits, n_reps, shots, use_sampling, feature_map,
-            entanglement, alpha, backend, seed, psd_project,
+            entanglement, alpha, backend, seed, psd_project, paulis, data_map,
         )
         self.prep = preprocessor or QuantumPreprocessor(n_qubits, seed=seed)
         self.svc = SVC(kernel="precomputed", C=C, probability=True, random_state=seed)

@@ -75,7 +75,10 @@ step "required packages import"              "$PY" -c "import cirq, sklearn, num
 
 # ── 1. Unit tests ────────────────────────────────────────────────────────────
 echo; echo "${BOLD}[1] Unit tests (tests/test_core.py)${RESET}"
-step "unit tests (19)"                    "$PY" -m unittest discover -s tests
+step "unit tests (24)"                    "$PY" -m unittest discover -s tests
+if [ -x ./venv-qiskit/bin/python ]; then
+  step "Qiskit equivalence tests (venv-qiskit)" ./venv-qiskit/bin/python -m unittest tests.test_qiskit
+fi
 
 # ── 2. Original protocol vs improved protocol ────────────────────────────────
 echo; echo "${BOLD}[2] Original vs improved protocol (binary, 8 qubits)${RESET}"
@@ -114,6 +117,26 @@ import json
 for d in ['rx','rx_shots','zz_full']:
     a = json.load(open('$OUT/'+d+'/results.json'))['summary']['qsvm']['accuracy']['mean']
     print(d, a); assert a > 0.90
+\""
+
+# ── 4b. Pauli feature maps + intermediate outputs ───────────────────────────
+echo; echo "${BOLD}[4b] Pauli feature maps, printed and saved kernels${RESET}"
+step "Pauli [Y, ZZ] map, product data map"   run_main pauli --kernel pauli --paulis Y ZZ --data-map product --n-qubits 6 --samples 600
+step "  kernel excerpt printed in the log"   grep -q "Training kernel K_train" "$LOG"
+step "  kernels_seed42.npz holds K_train/K_test" "$PY" -c "
+import numpy as np
+z = np.load('$OUT/pauli/kernels_seed42.npz')
+assert z['K_train'].shape == (480, 480) and z['K_test'].shape == (120, 480)
+assert abs(z['K_train'].diagonal() - 1).max() < 1e-6
+print('ok')
+"
+step "Pauli map: fast == Cirq backend" bash -c "
+  $PY main.py --quiet --show 0 --out-dir $OUT/pf --kernel pauli --paulis Z XX --n-qubits 5 --samples 300 --no-tune --alpha 0.4 --C 10 &&
+  $PY main.py --quiet --show 0 --out-dir $OUT/pc --kernel pauli --paulis Z XX --n-qubits 5 --samples 300 --no-tune --alpha 0.4 --C 10 --backend cirq &&
+  $PY -c \"
+import json
+a, b = (json.load(open('$OUT/'+d+'/results.json'))['runs'][0]['qsvm'] for d in ('pf', 'pc'))
+assert a['confusion_matrix'] == b['confusion_matrix'] and abs(a['auc'] - b['auc']) < 1e-6
 \""
 
 # ── 5. Fast engine == Cirq ───────────────────────────────────────────────────
