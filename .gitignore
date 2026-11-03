@@ -12,7 +12,7 @@ outputs/benchmark/**/*.png
 !outputs/feature_maps/
 outputs/feature_maps/*/*/*.png
 !outputs/hardware/
-outputs/hardware/**/kernels.npz
+outputs/hardware/dryrun*/kernels.npz
 
 # LaTeX build files (report.pdf itself is kept)
 report/*.aux

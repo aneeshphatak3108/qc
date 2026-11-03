@@ -1,0 +1,129 @@
+qiskit_runtime_service._discover_account:WARNING:2026-11-03 10:48:11,713: Loading account with the given token. A saved account will not be used.
+====================================================================================================
+  QSVM ON IBM QUANTUM HARDWARE — ZZ map, 8 qubits, reps=2, linear
+====================================================================================================
+  Data: 1600 train / 400 test flows (binary, dedup), PCA 8 (89.6% variance, train only)
+  Hyperparameters (CV on the full training split): α=0.4, C=10.0
+  Reference, exact QSVM on the full 1600/400 split: accuracy 99.50%
+  2460 kernel circuits: 780 train pairs + 80 diagonal + 1600 test–train, 256 shots each
+  Transpiled 2460 circuits in 24s onto physical qubits [91, 98, 111, 110, 109, 118, 129, 128]
+  Backend ibm_kingston: depth 149 (max 152), 56 two-qubit gates per circuit, median cz error 1.59e-03, readout error 4.88e-03
+  Rough QPU-time estimate: 2.6 min (circuits × shots × 250 µs repetition delay)
+  Noisy simulation (ibm_kingston noise model) of 2460 circuits in 366s
+  Submitted job dbkn0ftgg49c73dj8k20 to ibm_kingston; saved to /home/aneesh/Desktop/qcnn/outputs/hardware/ibm_kingston_8q_r2_40x40_s256/job.json
+  (if interrupted, resume with: --job-id dbkn0ftgg49c73dj8k20)
+  [10:55:20] job status: QUEUED
+  [11:24:51] job status: RUNNING
+  [11:31:28] job status: DONE
+
+  Intermediate results: kernel excerpts (first 6 training flows) from each source
+
+      [Exact (statevector)] K_train  shape 6×6, first 6×6 block (row/column label in brackets):
+                 [DDoS]   [DDoS] [BENIGN] [BENIGN] [BENIGN] [BENIGN]
+         [DDoS]  1.0000   0.0377   0.0004   0.1212   0.0074   0.0159
+         [DDoS]  0.0377   1.0000   0.0012   0.2147   0.0031   0.0103
+       [BENIGN]  0.0004   0.0012   1.0000   0.0313   0.0002   0.0036
+       [BENIGN]  0.1212   0.2147   0.0313   1.0000   0.0027   0.0052
+       [BENIGN]  0.0074   0.0031   0.0002   0.0027   1.0000   0.3009
+       [BENIGN]  0.0159   0.0103   0.0036   0.0052   0.3009   1.0000
+      off-diagonal entries: mean 0.0504  std 0.0880  min 0.0002  max 0.3009  median 0.0074  | diagonal mean 1.0000
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     DDoS
+          BENIGN   0.0573   0.0468
+            DDoS   0.0468   0.0377
+      eigenvalues: largest 1.31, 1.26, 1.00, 0.97, 0.77 | smallest 6.99e-01 | effective rank 5.7 of 6 | top-5 share 88.4%
+
+      [Ideal + shot noise] K_train  shape 6×6, first 6×6 block (row/column label in brackets):
+                 [DDoS]   [DDoS] [BENIGN] [BENIGN] [BENIGN] [BENIGN]
+         [DDoS]  1.0000   0.0352   0.0000   0.1367   0.0195   0.0195
+         [DDoS]  0.0352   1.0000   0.0039   0.1758   0.0000   0.0039
+       [BENIGN]  0.0000   0.0039   1.0000   0.0391   0.0000   0.0039
+       [BENIGN]  0.1367   0.1758   0.0391   1.0000   0.0000   0.0117
+       [BENIGN]  0.0195   0.0000   0.0000   0.0000   1.0000   0.2812
+       [BENIGN]  0.0195   0.0039   0.0039   0.0117   0.2812   1.0000
+      off-diagonal entries: mean 0.0487  std 0.0803  min 0.0000  max 0.2812  median 0.0117  | diagonal mean 1.0000
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     DDoS
+          BENIGN   0.0560   0.0449
+            DDoS   0.0449   0.0352
+      eigenvalues: largest 1.29, 1.24, 1.00, 0.96, 0.79 | smallest 7.18e-01 | effective rank 5.7 of 6 | top-5 share 88.0%
+
+      [Noisy simulator] K_train  shape 6×6, first 6×6 block (row/column label in brackets):
+                 [DDoS]   [DDoS] [BENIGN] [BENIGN] [BENIGN] [BENIGN]
+         [DDoS]  0.8438   0.0312   0.0000   0.1055   0.0117   0.0117
+         [DDoS]  0.0312   0.8555   0.0000   0.2227   0.0039   0.0039
+       [BENIGN]  0.0000   0.0000   0.8281   0.0039   0.0000   0.0117
+       [BENIGN]  0.1055   0.2227   0.0039   0.8398   0.0039   0.0039
+       [BENIGN]  0.0117   0.0039   0.0000   0.0039   0.8438   0.2695
+       [BENIGN]  0.0117   0.0039   0.0117   0.0039   0.2695   0.8242
+      off-diagonal entries: mean 0.0456  std 0.0831  min 0.0000  max 0.2695  median 0.0039  | diagonal mean 0.8392
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     DDoS
+          BENIGN   0.0488   0.0449
+            DDoS   0.0449   0.0312
+      eigenvalues: largest 1.12, 1.09, 0.83, 0.82, 0.61 | smallest 5.64e-01 | effective rank 5.6 of 6 | top-5 share 88.8%
+
+      [Noisy sim, mitigated] K_train  shape 6×6, first 6×6 block (row/column label in brackets):
+                 [DDoS]   [DDoS] [BENIGN] [BENIGN] [BENIGN] [BENIGN]
+         [DDoS]  1.0005   0.0367  -0.0000   0.1255   0.0139   0.0142
+         [DDoS]  0.0367   1.0005  -0.0000   0.2613   0.0045   0.0045
+       [BENIGN] -0.0000  -0.0000   1.0000   0.0049   0.0000   0.0142
+       [BENIGN]  0.1255   0.2613   0.0049   1.0053   0.0049   0.0049
+       [BENIGN]  0.0139   0.0045   0.0000   0.0049   1.0000   0.3232
+       [BENIGN]  0.0142   0.0045   0.0142   0.0049   0.3232   1.0001
+      off-diagonal entries: mean 0.0542  std 0.0988  min -0.0000  max 0.3232  median 0.0049  | diagonal mean 1.0011
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     DDoS
+          BENIGN   0.0587   0.0530
+            DDoS   0.0530   0.0367
+      eigenvalues: largest 1.33, 1.30, 1.00, 0.97, 0.73 | smallest 6.77e-01 | effective rank 5.6 of 6 | top-5 share 88.7%
+
+      [IBM hardware (raw)] K_train  shape 6×6, first 6×6 block (row/column label in brackets):
+                 [DDoS]   [DDoS] [BENIGN] [BENIGN] [BENIGN] [BENIGN]
+         [DDoS]  0.6562   0.0156   0.0039   0.0781   0.0039   0.0273
+         [DDoS]  0.0156   0.6680   0.0078   0.1289   0.0000   0.0078
+       [BENIGN]  0.0039   0.0078   0.6484   0.0195   0.0039   0.0039
+       [BENIGN]  0.0781   0.1289   0.0195   0.6523   0.0039   0.0039
+       [BENIGN]  0.0039   0.0000   0.0039   0.0039   0.6797   0.2578
+       [BENIGN]  0.0273   0.0078   0.0039   0.0039   0.2578   0.6953
+      off-diagonal entries: mean 0.0378  std 0.0680  min 0.0000  max 0.2578  median 0.0078  | diagonal mean 0.6667
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     DDoS
+          BENIGN   0.0488   0.0322
+            DDoS   0.0322   0.0156
+      eigenvalues: largest 0.95, 0.82, 0.65, 0.64, 0.51 | smallest 4.28e-01 | effective rank 5.6 of 6 | top-5 share 89.3%
+
+      [IBM hardware, mitigated] K_train  shape 6×6, first 6×6 block (row/column label in brackets):
+                 [DDoS]   [DDoS] [BENIGN] [BENIGN] [BENIGN] [BENIGN]
+         [DDoS]  1.0163   0.0265   0.0061   0.1311   0.0065   0.0401
+         [DDoS]  0.0265   1.0014   0.0119   0.1995   0.0002   0.0112
+       [BENIGN]  0.0061   0.0119   1.0000   0.0303   0.0059   0.0058
+       [BENIGN]  0.1311   0.1995   0.0303   1.0286   0.0060   0.0061
+       [BENIGN]  0.0065   0.0002   0.0059   0.0060   1.0001   0.3749
+       [BENIGN]  0.0401   0.0112   0.0058   0.0061   0.3749   1.0002
+      off-diagonal entries: mean 0.0575  std 0.1006  min 0.0002  max 0.3749  median 0.0112  | diagonal mean 1.0077
+      mean kernel value by class (row class × column class, diagonal excluded):
+                   BENIGN     DDoS
+          BENIGN   0.0715   0.0508
+            DDoS   0.0508   0.0265
+      eigenvalues: largest 1.38, 1.27, 1.00, 0.99, 0.79 | smallest 6.23e-01 | effective rank 5.6 of 6 | top-5 share 89.7%
+
+      [Noisy simulator] measured diagonal K(x,x) (ideal 1): mean 0.8230, min 0.7695, max 0.8672
+
+      [IBM hardware (raw)] measured diagonal K(x,x) (ideal 1): mean 0.6455, min 0.5898, max 0.7227
+
+====================================================================================================
+  COMPARISON — 40 train / 40 test flows, α=0.4, C=10.0
+====================================================================================================
+  Kernel source               Acc %     F1    AUC  =exact     MAE  max|Δ|      r  K(x,x) offdiag  align      λmin
+  Exact (statevector)          97.5  0.975  0.997    100%  0.0000   0.000  1.000   1.000   0.082  0.336 -4.73e-08
+  Ideal + shot noise           97.5  0.975  1.000    100%  0.0062   0.054  0.999   1.000   0.081  0.337 -5.02e-02
+  Noisy simulator              97.5  0.975  0.997    100%  0.0179   0.225  0.998   0.822   0.070  0.335 -9.56e-02
+  Noisy sim, mitigated         97.5  0.975  0.997    100%  0.0081   0.100  0.998   1.005   0.085  0.335 -3.21e-16
+  IBM hardware (raw)           97.5  0.975  0.997    100%  0.0318   0.416  0.996   0.651   0.057  0.339 -1.34e-01
+  IBM hardware, mitigated      97.5  0.975  0.997    100%  0.0124   0.179  0.996   1.009   0.086  0.339 -8.33e-16
+  Classical RBF-SVM            92.5  0.925  1.000       —       —       —      —       —       —      —         —
+  MAE = mean |K − K_exact| over test–train entries; r = Pearson correlation with the exact kernel;
+  K(x,x) = mean measured diagonal (ideal 1); =exact = test predictions identical to the exact QSVM.
+
+  Saved: /home/aneesh/Desktop/qcnn/outputs/hardware/ibm_kingston_8q_r2_40x40_s256/results.json, /home/aneesh/Desktop/qcnn/outputs/hardware/ibm_kingston_8q_r2_40x40_s256/kernels.npz, /home/aneesh/Desktop/qcnn/outputs/hardware/ibm_kingston_8q_r2_40x40_s256/hardware_comparison.png

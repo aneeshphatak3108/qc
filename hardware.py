@@ -42,6 +42,7 @@ INSTANCE for the instance CRN); it is never written to disk.
 import argparse
 import json
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -454,6 +455,7 @@ def main(argv=None):
     ap.add_argument("--show", type=int, default=6)
     ap.add_argument("--out-dir", default=None)
     args = ap.parse_args(argv)
+    sys.stdout.reconfigure(line_buffering=True)   # show progress live when piped to tee
 
     print("=" * 100)
     print(f"  QSVM ON IBM QUANTUM HARDWARE — ZZ map, {args.n_qubits} qubits, reps={args.reps}, "
